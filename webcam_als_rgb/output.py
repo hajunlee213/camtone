@@ -1,6 +1,37 @@
 from pathlib import Path
 import subprocess
 
+_BACKLIGHT_ROOT = Path("/sys/class/backlight")
+_TYPE_PRIORITY = {"raw": 0, "platform": 1, "firmware": 2}
+
+
+def _discover_backlight(preferred_name: str) -> tuple[str, Path, bool]:
+    """Return (name, dir, found) using preferred_name or raw > platform > firmware fallback."""
+    preferred_dir = _BACKLIGHT_ROOT / preferred_name
+    if preferred_dir.is_dir():
+        return preferred_name, preferred_dir, True
+
+    if _BACKLIGHT_ROOT.is_dir():
+        candidates: list[tuple[int, str, Path]] = []
+        for entry in sorted(_BACKLIGHT_ROOT.iterdir()):
+            if not entry.is_dir():
+                continue
+            type_file = entry / "type"
+            btype = type_file.read_text().strip() if type_file.exists() else ""
+            prio = _TYPE_PRIORITY.get(btype, 3)
+            candidates.append((prio, entry.name, entry))
+        if candidates:
+            candidates.sort(key=lambda item: (item[0], item[1]))
+            _, chosen_name, chosen_dir = candidates[0]
+            print(
+                f"WARN: backlight '{preferred_name}' not found; "
+                f"falling back to '{chosen_name}'"
+            )
+            return chosen_name, chosen_dir, True
+
+    print(f"WARN: backlight '{preferred_name}' not found and no fallback device in {_BACKLIGHT_ROOT}")
+    return preferred_name, preferred_dir, False
+
 
 class GnomeWaylandOutput:
     def __init__(
@@ -10,8 +41,10 @@ class GnomeWaylandOutput:
         enable_color_temp: bool = True,
         dry_run: bool = False,
     ):
-        self.backlight_name = backlight_name
-        self.backlight_dir = Path("/sys/class/backlight") / backlight_name
+        resolved_name, resolved_dir, found = _discover_backlight(backlight_name)
+        self.backlight_name = resolved_name
+        self.backlight_dir = resolved_dir
+        self._backlight_available = found
         self.enable_brightness = enable_brightness
         self.enable_color_temp = enable_color_temp
         self.dry_run = dry_run
@@ -31,7 +64,7 @@ class GnomeWaylandOutput:
         return int(round((cur / self._max_brightness) * 100.0))
 
     def set_brightness_pct(self, pct: int) -> None:
-        if not self.enable_brightness or self.dry_run:
+        if not self.enable_brightness or self.dry_run or not self._backlight_available:
             return
         raw_val = max(1, min(self._max_brightness, int(round((pct / 100.0) * self._max_brightness))))
         subprocess.run(
