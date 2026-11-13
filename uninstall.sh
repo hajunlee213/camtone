@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# webcam-as-als-rgb 제거 스크립트 (v0.1.6)
+# webcam-as-als-rgb 제거 스크립트 (v0.1.7)
 #
 # 순서: 서비스 정지 → Night Light 복구 → 확장 비활성화 → 파일·dconf 설정 삭제.
 # 저장소 자체는 지우지 않는다.
@@ -29,9 +29,11 @@ UNIT_PATH="$HOME/.config/systemd/user/$SERVICE_NAME"
 EXT_DIR="$HOME/.local/share/gnome-shell/extensions/$EXTENSION_UUID"
 LEGACY_EXT_DIR="$HOME/.local/share/gnome-shell/extensions/$LEGACY_PSR_UUID"
 SCHEMAS_USER_DIR="$HOME/.local/share/glib-2.0/schemas"
+APPS_DIR="$HOME/.local/share/applications"
+DESKTOP_NAME="webcam-als-rgb-prefs.desktop"
 
 echo "================================================================="
-echo "             webcam-as-als-rgb 제거 (v0.1.6)                     "
+echo "             webcam-as-als-rgb 제거 (v0.1.7)                     "
 echo "================================================================="
 
 # 1. 서비스 정지: 데몬은 SIGTERM을 받으면 Night Light를 원래 값으로 되돌리고 종료한다.
@@ -61,6 +63,10 @@ systemctl --user daemon-reload 2>/dev/null || true
 rm -rf "$EXT_DIR"
 rm -rf "$LEGACY_EXT_DIR"
 rm -f "$SCHEMAS_USER_DIR/$SCHEMA_FILE"
+rm -f "$APPS_DIR/$DESKTOP_NAME"
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database "$APPS_DIR" 2>/dev/null || true
+fi
 if [[ -d "$SCHEMAS_USER_DIR" ]]; then
     glib-compile-schemas "$SCHEMAS_USER_DIR" 2>/dev/null || true
 fi
