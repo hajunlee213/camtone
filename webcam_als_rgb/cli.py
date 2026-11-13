@@ -131,13 +131,23 @@ def _summarize_sweep(rows: list[SensorReading]) -> None:
             normal_rows.append(r)
             last_normal = r
 
-    # 2. Linear range: cumulative ev_log deviation <= 0.15 from lowest normal exposure
+    # 2. Linear range: exclude dark-floor points (luma_effective < 10.0) and take contiguous
+    # prefix where cumulative (max(ev_log) - min(ev_log)) <= 0.15
+    lin_candidates = [r for r in normal_rows if r.luma_effective >= 10.0]
+    if len(lin_candidates) < 2:
+        lin_candidates = normal_rows
+
     lin_rows: list[SensorReading] = []
-    if len(normal_rows) >= 2:
-        ref_ev = normal_rows[0].ev_log
-        for r in normal_rows:
-            if abs(r.ev_log - ref_ev) <= 0.15:
+    if len(lin_candidates) >= 2:
+        run_min = lin_candidates[0].ev_log
+        run_max = lin_candidates[0].ev_log
+        for r in lin_candidates:
+            new_min = min(run_min, r.ev_log)
+            new_max = max(run_max, r.ev_log)
+            if (new_max - new_min) <= 0.15:
                 lin_rows.append(r)
+                run_min = new_min
+                run_max = new_max
             else:
                 break
 
@@ -181,7 +191,7 @@ def _summarize_sweep(rows: list[SensorReading]) -> None:
     else:
         print(
             "  Linear luma range (est.): none detected "
-            "(cumulative ev_log deviation > 0.15 from lowest exposure)"
+            "(cumulative ev_log spread > 0.15 from lowest non-dark exposure)"
         )
         print(f"  Anomalous exposures (suspect glitch): {anom_msg}")
         print(f"  Effective exposure cap (est.): {cap_msg}")
