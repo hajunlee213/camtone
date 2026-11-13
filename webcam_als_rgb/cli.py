@@ -132,24 +132,28 @@ def main(argv: list[str] | None = None) -> int:
     if not args.dry_run:
         output.ensure_night_light_active()
 
-    if args.once:
-        try:
-            run_cycle(sensor, controller, output, args.dry_run)
-        except (subprocess.CalledProcessError, RuntimeError, OSError) as exc:
-            ts = time.strftime("%H:%M:%S")
-            print(f"[{ts}] ERROR: cycle failed ({type(exc).__name__}: {exc})")
-            return 1
-        return 0
-
-    print(f"Starting webcam-as-als-rgb (interval={interval}s, dry_run={args.dry_run}). Press Ctrl+C to stop.")
     try:
-        while True:
+        if args.once:
             try:
                 run_cycle(sensor, controller, output, args.dry_run)
             except (subprocess.CalledProcessError, RuntimeError, OSError) as exc:
                 ts = time.strftime("%H:%M:%S")
-                print(f"[{ts}] WARN: cycle failed ({type(exc).__name__}: {exc})")
-            time.sleep(interval)
-    except (KeyboardInterrupt, SystemExit):
-        print("\nStopped.")
-        return 0
+                print(f"[{ts}] ERROR: cycle failed ({type(exc).__name__}: {exc})")
+                return 1
+            return 0
+
+        print(f"Starting webcam-as-als-rgb (interval={interval}s, dry_run={args.dry_run}). Press Ctrl+C to stop.")
+        try:
+            while True:
+                try:
+                    run_cycle(sensor, controller, output, args.dry_run)
+                except (subprocess.CalledProcessError, RuntimeError, OSError) as exc:
+                    ts = time.strftime("%H:%M:%S")
+                    print(f"[{ts}] WARN: cycle failed ({type(exc).__name__}: {exc})")
+                time.sleep(interval)
+        except (KeyboardInterrupt, SystemExit):
+            print("\nStopped.")
+            return 0
+    finally:
+        if not args.dry_run:
+            output.restore_night_light()
