@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import math
 import re
 import subprocess
-from typing import Callable, Optional, TypeVar
+from typing import Callable, Optional, Sequence, TypeVar
 import numpy as np
 
 _T = TypeVar("_T")
@@ -277,6 +277,7 @@ class WebcamSensor:
         target_luma_max: float = 80.0,
         target_luma_setpoint: float = 65.0,
         roi_mode: str = "full",
+        exposure_blacklist: Sequence[int] = (1250, 2500),
     ):
         if yuv_range not in ("limited", "full"):
             raise ValueError(f"yuv_range must be 'limited' or 'full', got {yuv_range!r}")
@@ -291,7 +292,8 @@ class WebcamSensor:
         self.wb_ref_temp = wb_ref_temp
         self.min_exposure = min_exposure
         self.max_exposure = max_exposure
-        self.last_exposure = max(min_exposure, min(max_exposure, initial_exposure))
+        self.exposure_blacklist: set[int] = {int(x) for x in exposure_blacklist}
+        self.last_exposure = self._avoid_blacklisted_exposure(initial_exposure)
         self.black_level = black_level
         self.gamma = gamma
         self.yuv_range = yuv_range
@@ -299,6 +301,22 @@ class WebcamSensor:
         self.target_luma_max = target_luma_max
         self.target_luma_setpoint = target_luma_setpoint
         self.roi_mode = roi_mode
+
+    def _avoid_blacklisted_exposure(self, exp: int, extra_blacklist: Optional[set[int]] = None) -> int:
+        exp = max(self.min_exposure, min(self.max_exposure, int(exp)))
+        blocked = self.exposure_blacklist if extra_blacklist is None else (self.exposure_blacklist | extra_blacklist)
+        if exp not in blocked:
+            return exp
+        # 우선 +1씩 올려 회피하고, max_exposure에 막히면 -1씩 내려 회피
+        up = exp
+        while up <= self.max_exposure and up in blocked:
+            up += 1
+        if up <= self.max_exposure:
+            return up
+        down = exp
+        while down >= self.min_exposure and down in blocked:
+            down -= 1
+        return max(self.min_exposure, down)
 
     def _candidate_score(self, luma: float, sat_pct: float) -> tuple[int, float, int, float]:
         """Lower score is closer to the linear target range [target_luma_min, target_luma_max]."""
@@ -393,13 +411,34 @@ class WebcamSensor:
         Restores the previously saved V4L2 controls afterward.
         """
         def _measure(saved_ctrls: dict[str, int]) -> SensorReading:
-            exp = self.last_exposure
+            runtime_blacklist: set[int] = set()
+            prev_normal: Optional[tuple[int, float, float]] = None
+            exp = self._avoid_blacklisted_exposure(self.last_exposure, runtime_blacklist)
             best_metrics = None
             best_score = None
             best_exp = exp
             for step_idx in range(3):
                 metrics = self._capture_at_exposure(exp, saved_ctrls, is_first_step=(step_idx == 0))
                 luma, _luma_eff, luma_lin_mean, _luma_lin_g1, sat_pct, _cct, _rgb = metrics
+                cur_lin = max(1e-4, min(1.0, luma_lin_mean))
+
+                if prev_normal is not None:
+                    prev_exp, prev_lin, prev_sat = prev_normal
+                    if prev_sat <= 2.0 and prev_exp > 0:
+                        expected_lin = prev_lin * (exp / prev_exp)
+                        if cur_lin < expected_lin * 0.60:
+                            runtime_blacklist.add(exp)
+                            retry_exp = self._avoid_blacklisted_exposure(
+                                exp + max(1, int(round(exp * 0.01))),
+                                runtime_blacklist,
+                            )
+                            if retry_exp != exp:
+                                exp = retry_exp
+                                metrics = self._capture_at_exposure(exp, saved_ctrls, is_first_step=False)
+                                luma, _luma_eff, luma_lin_mean, _luma_lin_g1, sat_pct, _cct, _rgb = metrics
+                                cur_lin = max(1e-4, min(1.0, luma_lin_mean))
+
+                prev_normal = (exp, cur_lin, sat_pct)
                 score = self._candidate_score(luma, sat_pct)
                 if best_score is None or score < best_score:
                     best_score = score
@@ -418,13 +457,12 @@ class WebcamSensor:
                 eff_black = 0.0 if self.yuv_range == "full" else self.black_level
                 y_max = 255.0 if self.yuv_range == "full" else 235.0
                 y_span = max(y_max - eff_black, 1.0)
-                cur_lin = max(1e-4, min(1.0, luma_lin_mean))
                 target_norm = max(1e-4, min(1.0, (self.target_luma_setpoint - eff_black) / y_span))
                 target_lin = target_norm ** self.gamma
                 ratio = target_lin / max(cur_lin, 1e-6)
                 ratio = max(0.25, min(4.0, ratio))
                 next_exp = int(round(exp * ratio))
-                next_exp = max(self.min_exposure, min(self.max_exposure, next_exp))
+                next_exp = self._avoid_blacklisted_exposure(next_exp, runtime_blacklist)
                 if next_exp == exp:
                     break
                 exp = next_exp

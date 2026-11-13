@@ -28,6 +28,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "target_luma_max": 80.0,
         "target_luma_setpoint": 65.0,
         "roi_mode": "full",
+        "exposure_blacklist": [1250, 2500],
     },
     "controller": {
         # TODO(calibration): estimated values for gamma=1.0; tune with --dry-run
