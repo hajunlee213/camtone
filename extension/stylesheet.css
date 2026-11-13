@@ -1,0 +1,11 @@
+/* Webcam ALS RGB Quick Settings styles */
+
+.webcam-als-rgb-info {
+    font-size: 0.9em;
+    opacity: 0.85;
+}
+
+.webcam-als-rgb-warning {
+    color: #f6d32d;
+    font-size: 0.9em;
+}

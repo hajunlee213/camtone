@@ -14,7 +14,10 @@
     "target_luma_max": 80.0,
     "target_luma_setpoint": 65.0,
     "roi_mode": "full",
-    "exposure_blacklist": [1250, 2500]
+    "exposure_blacklist": [
+      1250,
+      2500
+    ]
   },
   "controller": {
     "ev_log_min": -8.8,
@@ -39,5 +42,11 @@
     "transition_steps": 4,
     "transition_interval_sec": 0.3
   },
-  "interval_sec": 15.0
+  "service": {
+    "enabled": true,
+    "interval_ac_sec": 60.0,
+    "interval_battery_sec": 120.0,
+    "interval_max_sec": 300.0,
+    "pause_on_battery": false
+  }
 }
