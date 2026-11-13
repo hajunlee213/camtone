@@ -249,11 +249,14 @@ def _analyze_frames(
     else:
         cct = 6500.0
 
-    y_norm = np.clip((y_roi - eff_black) / y_span, 0.0, 1.0)
-    luma_lin_gamma1 = float(y_norm.mean())
-    luma_lin_mean = luma_lin_gamma1 if gamma == 1.0 else float((y_norm ** gamma).mean())
     luma_mean = float(y_roi.mean())
     luma_eff = max(luma_mean - eff_black, 0.5)
+    luma_lin_gamma1 = max(0.0, min(1.0, (luma_mean - eff_black) / y_span))
+    if gamma == 1.0:
+        luma_lin_mean = luma_lin_gamma1
+    else:
+        y_norm = np.clip((y_roi - eff_black) / y_span, 0.0, 1.0)
+        luma_lin_mean = float((y_norm ** gamma).mean())
     rgb_mean = (float(r.mean()), float(g.mean()), float(b.mean()))
     return luma_mean, luma_eff, luma_lin_mean, luma_lin_gamma1, sat_pct, cct, rgb_mean
 
