@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# webcam-as-als-rgb 설치 스크립트 (v0.1.6)
+# webcam-as-als-rgb 설치 스크립트 (v0.1.7)
 #
 #   ./install.sh        파일을 ~/.local 아래로 복사해 설치 (일반 사용)
 #   ./install.sh --dev  복사 대신 이 저장소의 파일을 심볼릭 링크로 연결 (개발용)
@@ -54,7 +54,7 @@ LEGACY_EXT_DIR="$HOME/.local/share/gnome-shell/extensions/$LEGACY_PSR_UUID"
 SCHEMAS_USER_DIR="$HOME/.local/share/glib-2.0/schemas"
 
 echo "================================================================="
-echo "  webcam-as-als-rgb 설치 (v0.1.6)$([[ "$DEV_MODE" == true ]] && echo ' [--dev: 심볼릭 링크 모드]')"
+echo "  webcam-as-als-rgb 설치 (v0.1.7)$([[ "$DEV_MODE" == true ]] && echo ' [--dev: 심볼릭 링크 모드]')"
 echo "================================================================="
 echo ""
 
@@ -92,6 +92,8 @@ fi
 [[ -f "$SCRIPT_DIR/webcam-als-rgb.service" ]] || error "webcam-als-rgb.service 파일이 없습니다."
 [[ -f "$SCRIPT_DIR/extension/metadata.json" && -f "$SCRIPT_DIR/extension/extension.js" ]] \
     || error "extension/ 에 metadata.json 또는 extension.js가 없습니다."
+[[ -f "$SCRIPT_DIR/extension/prefs.js" ]] || error "extension/prefs.js가 없습니다 (설정 창)."
+[[ -f "$SCRIPT_DIR/webcam-als-rgb-prefs.desktop" ]] || error "webcam-als-rgb-prefs.desktop 파일이 없습니다."
 [[ -f "$SCRIPT_DIR/extension/schemas/$SCHEMA_FILE" ]] || error "스키마 파일이 없습니다: extension/schemas/$SCHEMA_FILE"
 
 # 2. 이전 설치 정리: 실행 중인 데몬을 먼저 멈춘다 (SIGTERM 경로에서 Night Light가 복구됨)
@@ -144,6 +146,20 @@ else
     cp -R "$SCRIPT_DIR/extension/." "$EXT_DIR/"
 fi
 glib-compile-schemas "$EXT_DIR/schemas"
+
+# 설정 창 바로가기 (앱 목록). --dev에서는 저장소 파일을 가리키도록 링크한다.
+APPS_DIR="$HOME/.local/share/applications"
+DESKTOP_NAME="webcam-als-rgb-prefs.desktop"
+mkdir -p "$APPS_DIR"
+rm -f "$APPS_DIR/$DESKTOP_NAME"
+if [[ "$DEV_MODE" == true ]]; then
+    ln -s "$SCRIPT_DIR/$DESKTOP_NAME" "$APPS_DIR/$DESKTOP_NAME"
+else
+    cp "$SCRIPT_DIR/$DESKTOP_NAME" "$APPS_DIR/$DESKTOP_NAME"
+fi
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database "$APPS_DIR" 2>/dev/null || true
+fi
 
 # 데몬은 확장 밖에서도 스키마를 찾아야 하므로 사용자 스키마 디렉터리에도 둔다.
 rm -f "$SCHEMAS_USER_DIR/$SCHEMA_FILE"
@@ -201,13 +217,17 @@ gnome-extensions enable "$EXTENSION_UUID" 2>/dev/null || true
 step "7/7: 완료."
 echo ""
 info "================================================================="
-info " webcam-as-als-rgb v0.1.6 설치가 끝났습니다."
+info " webcam-as-als-rgb v0.1.7 설치가 끝났습니다."
 info "================================================================="
 echo "다음 단계:"
 echo "  1. Wayland에서는 로그아웃 후 다시 로그인해야 새 확장이 로드됩니다."
 echo "  2. 로그인 후 퀵 설정의 토글을 켜면 서비스가 시작되고, 끄면 Night Light를 복구하고 멈춥니다."
 echo "     서비스는 로그인 시 자동으로 뜨지 않습니다."
-echo "  3. 로그 확인:   journalctl --user -u webcam-als-rgb -f"
-echo "  4. 개발 명령:   webcam-als-rgb --once --dry-run"
-echo "  5. 완전 제거:   ./uninstall.sh"
+echo "  3. 설정 창:     퀵 설정의 '설정…' 또는 앱 목록의 'Webcam ALS RGB 설정'"
+echo "  4. 로그 확인:   journalctl --user -u webcam-als-rgb -f"
+echo "  5. 개발 명령:   webcam-als-rgb --once --dry-run"
+echo "  6. 완전 제거:   ./uninstall.sh"
+if [[ "$DEV_MODE" == true ]]; then
+    echo "  * --dev: extension/prefs.js는 설치 시점에 링크됩니다. 이 파일을 새로 추가했다면 ./install.sh --dev를 다시 실행하세요."
+fi
 echo ""
