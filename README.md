@@ -78,6 +78,7 @@ python3 run.py --config config.json
 | `sensor` | `roi_mode` | `"full"` | `"full"`(전체 프레임) 또는 `"border"`(상단/좌우 테두리 위주 — 화면 반사광·얼굴 영향 감소) |
 | `sensor` | `wb_ref_temp` | `4600` | 수동 화이트밸런스 기준 온도(K). 사용 중인 웹캠에 맞춰 `4600`~`5500` 사이로 조정 가능 |
 | `sensor` | `max_exposure` | `8000` | 자동 노출 조절 상한(노출 10000까지 luma가 증가하나 캡처 시간·LED 점등과의 균형을 위해 8000으로 설정) |
+| `sensor` | `exposure_blacklist` | `[1250, 2500]` | 특정 노출값에서 휘도가 급락하는 카메라 펌웨어 결함 노출 목록(자동 노출 조절 시 회피) |
 | `sensor` | `gamma` | `1.0` | Y 휘도 선형화 감마 지수(기본 `1.0`은 LG Camera 실측 결과; 다른 카메라는 `--sweep`으로 확인) |
 | `sensor` | `yuv_range` | `"limited"` | `"limited"`(`Y: 16~235`) 또는 `"full"`(`Y: 0~255`). 사용 중인 웹캠 출력 범위에 맞게 선택 |
 | `sensor` | `target_luma_min` / `max` | `50.0` / `80.0` | 노출 자동 조절 목표 luma 구간(선형 구간 기준) |
@@ -114,7 +115,7 @@ python3 run.py --config config.json
    python3 run.py --sweep --sweep-order asc
    python3 run.py --sweep --sweep-order desc
    ```
-   요약 출력의 `Linear luma range (est.)`와 `Effective exposure cap (est.)`, `ev_log` 편차(`PASS` 기준 `<= 0.30`)를 확인합니다.
+   요약 출력의 `Linear luma range (est.)`와 `Effective exposure cap (est.)`, `ev_log` 편차(`PASS` 기준 `<= 0.30`)를 확인합니다. 또한 `Anomalous exposures (suspect glitch)`에 결함 노출이 보고되면 `sensor.exposure_blacklist`에 추가해 자동 노출 조절 시 회피하도록 설정하세요.
 2. **센서 파라미터 조정 (`gamma`, `target_luma_*`, `max_exposure`)**:
    * `--sweep` 결과에서 선형 구간 내 `ev_log_gamma1`이 일정하면 `gamma: 1.0`을 유지하고, 체계적인 기울기가 보이면 `gamma`를 조정합니다.
    * `target_luma_min`/`target_luma_max`/`target_luma_setpoint`를 선형 구간 안으로 맞추고, `max_exposure`를 유효 노출 상한보다 약간 낮게 설정합니다.
