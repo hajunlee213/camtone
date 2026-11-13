@@ -108,7 +108,7 @@ def _summarize_sweep(rows: list[SensorReading]) -> None:
         print("\nSummary: insufficient data points (need at least 2 exposures).")
         return
 
-    # Linear range: longest contiguous run where adjacent luma_eff ratio / exp ratio is in [0.85, 1.15]
+    # Linear range: longest contiguous run where adjacent luma_eff ratio / exp ratio is in [0.90, 1.10]
     best_start = -1
     best_end = -1
     cur_start: int | None = None
@@ -117,7 +117,7 @@ def _summarize_sweep(rows: list[SensorReading]) -> None:
         exp_ratio = r1.exposure / r0.exposure if r0.exposure > 0 else 0.0
         luma_ratio = r1.luma_effective / r0.luma_effective if r0.luma_effective > 0 else 0.0
         rel = (luma_ratio / exp_ratio) if exp_ratio > 0 else 0.0
-        if 0.85 <= rel <= 1.15:
+        if 0.90 <= rel <= 1.10:
             if cur_start is None:
                 cur_start = idx
             if (idx + 1 - cur_start) > (best_end - best_start):
@@ -151,7 +151,7 @@ def _summarize_sweep(rows: list[SensorReading]) -> None:
         print(f"  Effective exposure cap (est.): {cap_msg}")
         print(f"  Linear ev_log spread (max-min): {ev_spread:.2f} [{verdict}, threshold <= 0.30]")
     else:
-        print("  Linear luma range (est.): none detected (ratio outside 0.85..1.15)")
+        print("  Linear luma range (est.): none detected (ratio outside 0.90..1.10)")
         print(f"  Effective exposure cap (est.): {cap_msg}")
         print("  Linear ev_log spread (max-min): N/A [FAIL]")
 
