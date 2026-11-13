@@ -27,6 +27,22 @@ SCHEMA_ID = "org.gnome.shell.extensions.webcam-als-rgb"
 # GSettings keys whose change requires the measurement schedule to be recomputed.
 INTERVAL_KEYS = frozenset({"interval-ac-sec", "interval-battery-sec", "interval-max-sec"})
 
+# GSettings keys that change the brightness/CCT mapping. A change recomputes the current target
+# at once (debounced), instead of waiting for the next measurement (v0.1.8, plan A2).
+RECOMPUTE_KEYS = frozenset({
+    "cct-offset",
+    "display-cct-min",
+    "display-cct-max",
+    "ambient-cct-min",
+    "ambient-cct-max",
+    "cct-calibration",
+    "brightness-min-pct",
+    "brightness-max-pct",
+    "ev-log-min",
+    "ev-log-max",
+    "brightness-offset-pct",
+})
+
 # Written by the daemon itself (learned manual offset); clamped to the schema range on write.
 OFFSET_KEY = "brightness-offset-pct"
 OFFSET_RANGE = (-50, 50)

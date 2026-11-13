@@ -21,7 +21,9 @@ v0.1.6부터 Python 데몬과 GNOME Shell 확장이 하나로 합쳐졌습니다
    * 측정 전에 `fuser /dev/video0`로 다른 앱(Zoom, Meet 등)이 웹캠을 쓰고 있는지 확인하고, 쓰는 중이면 이번 회차를 건너뜁니다.
    * 측정이 끝나면 `finally`에서 측정 전 저장해 둔 카메라 컨트롤 값으로 즉시 되돌립니다.
 4. **GNOME Wayland 제어**
-   * **밝기**: `systemd-logind` D-Bus `org.freedesktop.login1.Session.SetBrightness` (`sudo` 불필요). 시스템 슬라이더나 단축키로 밝기를 직접 바꾸면 그 차이를 `brightness-offset-pct`로 학습해 다음 측정부터 반영하고, 값은 GSettings에 저장되어 재시작 후에도 유지됩니다.
+   * **밝기 (GNOME 셸 백엔드, v0.1.8)**: GNOME 셸의 `org.gnome.Shell.Brightness.SetAutoBrightnessTarget`에 목표 밝기를 넘깁니다. 셸이 그 값을 기준으로 밝기를 설정하고 밝기 슬라이더가 따라갑니다. 슬라이더는 사용자 보정으로 쓰이며 가운데(50%)가 보정 없음입니다. 이 경우 데몬은 밝기 오프셋을 학습하지 않습니다. 자동 밝기를 끄거나 서비스를 끄면 `SetAutoBrightnessTarget(-1.0)`으로 제어를 GNOME에 돌려줍니다.
+   * **밝기 (logind 백엔드, GNOME 48 이하 등)**: 셸 밝기 인터페이스가 없을 때 `systemd-logind` D-Bus `org.freedesktop.login1.Session.SetBrightness`(`sudo` 불필요)로 백라이트를 직접 씁니다. 시스템 슬라이더나 단축키로 밝기를 직접 바꾸면 그 차이를 `brightness-offset-pct`로 학습해 다음 측정부터 반영하고, 값은 GSettings에 저장되어 재시작 후에도 유지됩니다.
+   * 현재 백엔드는 D-Bus 속성 `BrightnessBackend`(`shell` / `logind` / `none`)와 서비스 로그 `BRIGHTNESS: backend=…`에 나타납니다.
    * **색온도**: GNOME Night Light (`night-light-temperature`).
    * **부드러운 전환**: 밝기와 색온도 모두 현재 값에서 목표 값까지 `300ms × 4단계`(총 1.2초)로 나눠 적용합니다. 전환은 메인 루프에서 비동기로 진행되어 UI를 멈추지 않으며, 새 목표가 오면 현재 값에서 다시 보간합니다.
 
@@ -198,7 +200,7 @@ gdbus call --session \
   --method io.github.hajunlee213.WebcamAlsRgb.MeasureNow
 ```
 
-주요 속성은 `State`(`running`, `paused-locked`, `paused-sleep`, `paused-battery`, `camera-busy`), `EvLog`, `AmbientCct`, `TargetBrightness`, `TargetCct`, `LastMeasured`, `NextMeasureIn`입니다.
+주요 속성은 `State`(`running`, `paused-locked`, `paused-sleep`, `paused-battery`, `camera-busy`), `EvLog`, `AmbientCct`, `TargetBrightness`, `TargetCct`, `LastMeasured`, `NextMeasureIn`, `BrightnessBackend`(`shell`, `logind`, `none`)입니다.
 
 ---
 
@@ -219,7 +221,7 @@ gsettings get org.gnome.shell.extensions.webcam-als-rgb brightness-max-pct
 | `auto-brightness` | `true` | 자동 밝기 |
 | `auto-color-temp` | `true` | 자동 색온도. 끄면 Night Light를 원래 값으로 되돌립니다. |
 | `brightness-min-pct` / `brightness-max-pct` | `15` / `95` | 자동 밝기 범위(%) |
-| `brightness-offset-pct` | `0` | 수동 밝기 오프셋(−50~50). 데몬이 학습해 저장합니다. |
+| `brightness-offset-pct` | `0` | 수동 밝기 오프셋(−50~50). logind 백엔드에서만 데몬이 학습해 저장합니다. 셸 백엔드에서는 쓰지 않습니다(GNOME 슬라이더가 보정). |
 | `display-cct-min` / `display-cct-max` | `3400` / `6200` | Night Light 색온도 범위(K) |
 | `cct-offset` | `0` | 색온도 오프셋(K) |
 | `ev-log-min` / `ev-log-max` | `-8.8` / `-2.3` | 밝기 매핑의 조도 범위(추정치) |

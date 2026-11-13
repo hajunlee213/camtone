@@ -88,8 +88,61 @@ function stateText(state) {
     }
 }
 
+// BrightnessBackend values from the daemon. Unknown or missing values give null (nothing shown).
+function backendText(backend) {
+    switch (backend) {
+    case 'shell':
+        return 'GNOME';
+    case 'logind':
+        return _('직접 제어 (logind)');
+    case 'none':
+        return _('없음');
+    default:
+        return null;
+    }
+}
+
 // Adw/Gtk constructor props: leave subtitle out entirely when there is none.
 const withSubtitle = (props, subtitle) => (subtitle ? {...props, subtitle} : props);
+
+// Rough brightness % for an ev reading, using the same linear map as the daemon (offset ignored).
+// Returns null when the reference pair is not usable.
+export function estimateBrightnessPct(ev, evMin, evMax, minPct, maxPct) {
+    if (!Number.isFinite(ev) || !(evMax > evMin))
+        return null;
+    const t = Math.min(1, Math.max(0, (ev - evMin) / (evMax - evMin)));
+    return Math.round(minPct + t * (maxPct - minPct));
+}
+
+// Confirmation dialog. Adw.AlertDialog needs libadwaita 1.5; older systems get Adw.MessageDialog.
+// `kind` ('alert' | 'message') is only overridden by the harness; production leaves it out.
+export function confirmDialog({window, heading, body, cancelLabel, confirmLabel, onConfirm, kind = null}) {
+    const useAlert = (kind ?? (typeof Adw.AlertDialog === 'function' ? 'alert' : 'message')) === 'alert';
+    const dialog = useAlert
+        ? new Adw.AlertDialog({heading, body})
+        : new Adw.MessageDialog({transient_for: window, modal: true, heading, body});
+    dialog.add_response('cancel', cancelLabel);
+    dialog.add_response('apply', confirmLabel);
+    dialog.set_response_appearance('apply', Adw.ResponseAppearance.SUGGESTED);
+    dialog.set_default_response('cancel');
+    dialog.set_close_response('cancel');
+    dialog.connect('response', (_d, response) => {
+        if (response === 'apply')
+            onConfirm();
+    });
+    if (useAlert)
+        dialog.present(window);
+    else
+        dialog.present();
+    return dialog;
+}
+
+// Toast that stays for 10 s with a 되돌리기 (undo) button.
+export function undoToast(title, onUndo) {
+    const toast = new Adw.Toast({title, timeout: 10, button_label: _('되돌리기')});
+    toast.connect('button-clicked', () => onUndo());
+    return toast;
+}
 
 export default class WebcamAlsRgbPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
@@ -208,6 +261,17 @@ export default class WebcamAlsRgbPreferences extends ExtensionPreferences {
         settings.connect('changed::brightness-offset-pct', updateOffset);
         updateOffset();
 
+        // Under the GNOME shell backend the slider does the fine adjustment, so the learned offset is hidden.
+        const shellGroup = addGroup(brightnessPage, _('밝기 미세 조정'),
+            _('밝기 미세 조정은 GNOME 밝기 슬라이더로 합니다. 슬라이더 가운데(50%)가 보정 없음입니다.'));
+        shellGroup.set_visible(false);
+        // Until the first daemon poll, the offset group stays visible (the logind behaviour).
+        const applyBackend = props => {
+            const isShell = props?.BrightnessBackend === 'shell';
+            learnedGroup.set_visible(!isShell);
+            shellGroup.set_visible(isShell);
+        };
+
         // =============================================================
         // 색온도 (color temperature)
         // =============================================================
@@ -282,7 +346,8 @@ export default class WebcamAlsRgbPreferences extends ExtensionPreferences {
             title: _('밝은 기준 ev'), subtitle: _('이 값 이상은 최대 밝기'), digits: 1, step: 0.1, page: 0.5,
         }));
 
-        // Refuses a reference that would cross the other one (min must stay below max).
+        // Measures, checks, then asks before writing. Refuses a reference that would cross the other one
+        // (min must stay below max). Nothing is written until the user confirms in the dialog.
         const setEvReference = async key => {
             try {
                 const props = await measureNow();
@@ -295,12 +360,47 @@ export default class WebcamAlsRgbPreferences extends ExtensionPreferences {
                     throw new Error(`${_('어두운 기준은 밝은 기준')} (${hi.toFixed(1)}) ${_('보다 작아야 합니다. 현재 측정값')}: ${ev.toFixed(1)}`);
                 if (key === 'ev-log-max' && ev <= lo)
                     throw new Error(`${_('밝은 기준은 어두운 기준')} (${lo.toFixed(1)}) ${_('보다 커야 합니다. 현재 측정값')}: ${ev.toFixed(1)}`);
-                if (!settings.set_double(key, ev))
-                    throw new Error(_('값이 허용 범위를 벗어났습니다.'));
-                toast(`${_('기준 설정됨')}: ev ${ev.toFixed(1)}`);
+
+                const isDark = key === 'ev-log-min';
+                const oldValue = isDark ? lo : hi;
+                const newLo = isDark ? ev : lo;
+                const newHi = isDark ? hi : ev;
+                const minPct = settings.get_int('brightness-min-pct');
+                const maxPct = settings.get_int('brightness-max-pct');
+                const oldPct = estimateBrightnessPct(ev, lo, hi, minPct, maxPct);
+                const newPct = estimateBrightnessPct(ev, newLo, newHi, minPct, maxPct);
+                const label = isDark ? _('어두운 기준 ev') : _('밝은 기준 ev');
+                const pctLine = newPct === null
+                    ? ''
+                    : `\n${_('이 값을 쓰면 지금 환경에서 밝기가 약')} ${newPct}%${_('가 됩니다')}` +
+                      (oldPct === null ? '' : ` (${_('현재 설정')}: ${_('약')} ${oldPct}%)`) +
+                      `\n${_('보정 오프셋은 빼고 계산한 추정치입니다.')}`;
+
+                confirmDialog({
+                    window,
+                    heading: isDark ? _('어두운 기준을 바꿀까요?') : _('밝은 기준을 바꿀까요?'),
+                    body: `${label}: ${oldValue.toFixed(1)} → ${ev.toFixed(1)}${pctLine}`,
+                    cancelLabel: _('취소'),
+                    confirmLabel: _('적용'),
+                    onConfirm: () => applyEvReference(key, ev, oldValue),
+                });
             } catch (e) {
                 toast(errorText(e));
             }
+        };
+
+        const applyEvReference = (key, ev, previous) => {
+            if (!settings.set_double(key, ev)) {
+                toast(_('값이 허용 범위를 벗어났습니다.'));
+                return;
+            }
+            const isDark = key === 'ev-log-min';
+            window.add_toast(undoToast(
+                `${isDark ? _('어두운') : _('밝은')} ${_('기준을')} ${ev.toFixed(1)}${_('으로 설정했습니다')}`,
+                () => {
+                    if (!settings.set_double(key, previous))
+                        toast(_('되돌리지 못했습니다.'));
+                }));
         };
         evGroup.add(buttonRow(_('현재 환경을 어두운 기준으로'),
             _('지금 어두운 곳에서 측정해 어두운 기준 ev로 넣습니다'), _('측정해서 설정'),
@@ -385,9 +485,12 @@ export default class WebcamAlsRgbPreferences extends ExtensionPreferences {
             try {
                 const props = await measureNow();
                 const measured = Number(props.AmbientCct);
-                writeCalPoints([...calPoints(), [measured, trueK]].sort((x, y) => x[0] - y[0]));
+                const previous = calPoints();
+                writeCalPoints([...previous, [measured, trueK]].sort((x, y) => x[0] - y[0]));
                 trueKRow.set_text('');
-                toast(`${_('점 추가됨')}: ${Math.round(measured)} K → ${Math.round(trueK)} K`);
+                window.add_toast(undoToast(
+                    `${_('점 추가됨')}: ${Math.round(measured)} K → ${Math.round(trueK)} K`,
+                    () => writeCalPoints(previous)));
             } catch (e) {
                 toast(errorText(e));
             }
@@ -414,12 +517,17 @@ export default class WebcamAlsRgbPreferences extends ExtensionPreferences {
 
         const updateInfo = async () => {
             const props = await readDaemonProps();
+            applyBackend(props);
             if (!props) {
                 stateRow.set_subtitle(_('실행 중이 아님'));
                 lastRow.set_subtitle('-');
                 return;
             }
-            stateRow.set_subtitle(stateText(props.State));
+            // BrightnessBackend is missing on daemons older than v0.1.8; show nothing extra then.
+            const backend = backendText(props.BrightnessBackend);
+            stateRow.set_subtitle(backend
+                ? `${stateText(props.State)} · ${_('밝기')}: ${backend}`
+                : stateText(props.State));
             const last = Number(props.LastMeasured);
             if (!last) {
                 lastRow.set_subtitle(_('아직 없음'));

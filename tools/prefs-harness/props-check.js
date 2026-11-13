@@ -11,7 +11,17 @@ const checkProps = (cls, names) => { const have = propsOf(cls); for (const n of 
 const checkMethods = (obj, names) => { for (const n of names) if (typeof obj[n] !== 'function') bad.push(`${obj.constructor.name}: no method '${n}'`); };
 
 // constructor props as used in prefs.js
-checkProps(Adw.Toast, ['title', 'timeout']);
+checkProps(Adw.Toast, ['title', 'timeout', 'button_label']);
+// confirmDialog(): AlertDialog when libadwaita has it (1.5+), MessageDialog otherwise (always checked)
+checkProps(Adw.MessageDialog, ['heading', 'body', 'transient_for', 'modal']);
+const msgDialog = new Adw.MessageDialog({heading: 'x', body: 'y'});
+checkMethods(msgDialog, ['add_response', 'set_response_appearance', 'set_default_response', 'set_close_response', 'present', 'close', 'connect']);
+if (typeof Adw.ResponseAppearance?.SUGGESTED === 'undefined') bad.push('Adw.ResponseAppearance.SUGGESTED missing');
+if (typeof Adw.AlertDialog === 'function') {
+    checkProps(Adw.AlertDialog, ['heading', 'body']);
+    const alertDialog = new Adw.AlertDialog({heading: 'x', body: 'y'});
+    checkMethods(alertDialog, ['add_response', 'set_response_appearance', 'set_default_response', 'set_close_response', 'present', 'close', 'connect']);
+}
 checkProps(Gtk.Button, ['label', 'valign', 'icon_name', 'tooltip_text', 'css_classes']);
 checkProps(Adw.SwitchRow, ['title', 'subtitle']);
 checkProps(Adw.SpinRow, ['title', 'subtitle', 'digits', 'climb_rate', 'adjustment']);
