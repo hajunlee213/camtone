@@ -408,7 +408,7 @@ class Service:
             if turned_on:
                 # Re-apply at once; the applied values may be stale from while the feature was off.
                 self._controller.invalidate_applied()
-                self._do_recompute("enabled")
+                self._do_recompute(key)
         elif key in RECOMPUTE_KEYS:
             self._schedule_recompute(key)
 
