@@ -216,10 +216,10 @@ class WebcamSensor:
         exp = self.last_exposure
 
         try:
-            _v4l2(
-                self.device,
-                f"--set-ctrl=auto_exposure=1,white_balance_automatic=0,white_balance_temperature={self.wb_ref_temp}",
-            )
+            ctrl_str = f"auto_exposure=1,white_balance_automatic=0,white_balance_temperature={self.wb_ref_temp}"
+            if "exposure_dynamic_framerate" in saved_ctrls:
+                ctrl_str += ",exposure_dynamic_framerate=1"
+            _v4l2(self.device, f"--set-ctrl={ctrl_str}")
 
             best_metrics = None
             for _ in range(3):
