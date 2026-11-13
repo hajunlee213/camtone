@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Sequence
 from .sensor import SensorReading
 
 
@@ -12,6 +12,24 @@ def _lerp_map(val: float, in_min: float, in_max: float, out_min: float, out_max:
         return out_min
     t = _clamp((val - in_min) / (in_max - in_min), 0.0, 1.0)
     return out_min + t * (out_max - out_min)
+
+
+def _calibrate_cct(measured_cct: float, points: Sequence[Sequence[float]]) -> float:
+    """Map relative McCamy CCT to actual ambient CCT using piecewise linear calibration points."""
+    if not points:
+        return measured_cct
+    sorted_pts = sorted((float(m), float(a)) for m, a in points)
+    if len(sorted_pts) == 1:
+        m0, a0 = sorted_pts[0]
+        return measured_cct + (a0 - m0)
+    if measured_cct <= sorted_pts[0][0]:
+        return sorted_pts[0][1]
+    if measured_cct >= sorted_pts[-1][0]:
+        return sorted_pts[-1][1]
+    for (m0, a0), (m1, a1) in zip(sorted_pts, sorted_pts[1:]):
+        if m0 <= measured_cct <= m1:
+            return _lerp_map(measured_cct, m0, m1, a0, a1)
+    return measured_cct
 
 
 @dataclass
@@ -37,6 +55,8 @@ class AdaptiveController:
         display_cct_min: int = 3400,
         display_cct_max: int = 6200,
         cct_offset: int = 0,
+        # TODO(calibration): populate [measured_cct, actual_cct] pairs from known light sources
+        cct_calibration: Optional[list[list[float]]] = None,
         ema_alpha: float = 0.35,
         brightness_deadband_pct: int = 2,
         cct_deadband_k: int = 80,
@@ -50,6 +70,7 @@ class AdaptiveController:
         self.display_cct_min = display_cct_min
         self.display_cct_max = display_cct_max
         self.cct_offset = cct_offset
+        self.cct_calibration: list[list[float]] = list(cct_calibration) if cct_calibration else []
         self.ema_alpha = ema_alpha
         self.brightness_deadband_pct = brightness_deadband_pct
         self.cct_deadband_k = cct_deadband_k
@@ -60,13 +81,14 @@ class AdaptiveController:
         self._last_applied_cct: Optional[int] = None
 
     def update(self, reading: SensorReading) -> ControlTarget:
+        calibrated_cct = _calibrate_cct(reading.cct, self.cct_calibration)
         if self._ema_ev_log is None:
             self._ema_ev_log = reading.ev_log
-            self._ema_cct = reading.cct
+            self._ema_cct = calibrated_cct
         else:
             a = self.ema_alpha
             self._ema_ev_log = a * reading.ev_log + (1.0 - a) * self._ema_ev_log
-            self._ema_cct = a * reading.cct + (1.0 - a) * self._ema_cct
+            self._ema_cct = a * calibrated_cct + (1.0 - a) * self._ema_cct
 
         raw_brightness = _lerp_map(
             self._ema_ev_log,

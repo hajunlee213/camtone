@@ -34,6 +34,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "display_cct_min": 3400,
         "display_cct_max": 6200,
         "cct_offset": 0,
+        # TODO(calibration): populate [measured_cct, actual_cct] pairs from known light sources
+        "cct_calibration": [],
         "ema_alpha": 0.35,
         "brightness_deadband_pct": 2,
         "cct_deadband_k": 80,
