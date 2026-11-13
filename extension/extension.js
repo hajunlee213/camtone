@@ -26,6 +26,9 @@ const CONFLICT_UUIDS = [
     'adaptivetone@hajun.github.io',
 ];
 
+// GNOME 45-47 export ExtensionState.ENABLED; GNOME 48+ exports ExtensionState.ACTIVE.
+const EXTENSION_ACTIVE_STATE = ExtensionState.ACTIVE ?? ExtensionState.ENABLED;
+
 /**
  * Starts and stops the systemd user unit over the session bus.
  * All calls are asynchronous; results are reported through onChange.
@@ -273,7 +276,7 @@ class WebcamAlsRgbToggle extends QuickMenuToggle {
     _refreshConflicts() {
         const names = CONFLICT_UUIDS.filter(uuid => {
             const ext = Main.extensionManager?.lookup(uuid);
-            return ext?.state === ExtensionState.ENABLED;
+            return ext?.state === EXTENSION_ACTIVE_STATE;
         });
         this._warnItem.visible = names.length > 0;
         if (names.length > 0)
