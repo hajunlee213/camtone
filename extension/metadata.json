@@ -1,0 +1,7 @@
+{
+  "name": "Webcam ALS RGB PSR Refresher",
+  "description": "Forces full-frame compositor damage on Intel PSR2 panels during Night Light transitions and hides the actor immediately afterward.",
+  "uuid": "webcam-als-rgb-psr@hajun.github.io",
+  "shell-version": ["45", "46", "47", "48", "49", "50"],
+  "version": 1
+}
