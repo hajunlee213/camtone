@@ -52,6 +52,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "backlight_name": "intel_backlight",
         "enable_brightness": True,
         "enable_color_temp": True,
+        "transition_steps": 4,
+        "transition_interval_sec": 0.3,
     },
     "interval_sec": 15.0,
 }
@@ -93,12 +95,16 @@ def run_cycle(
     )
     target = controller.update(reading, actual_brightness_pct=actual_brightness)
     actions = []
+    b_target: int | None = None
+    c_target: int | None = None
     if target.apply_brightness and output.enable_brightness:
-        output.set_brightness_pct(target.brightness_pct)
+        b_target = target.brightness_pct
         actions.append(f"brightness={target.brightness_pct}%")
     if target.apply_cct and output.enable_color_temp:
-        output.set_color_temperature(target.cct)
+        c_target = target.cct
         actions.append(f"cct={target.cct}K")
+    if b_target is not None or c_target is not None:
+        output.apply_transition(brightness_pct=b_target, cct=c_target)
 
     mode_tag = "DRY-RUN" if dry_run else "APPLIED"
     action_str = ", ".join(actions) if actions else "no-change (within deadband)"

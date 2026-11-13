@@ -35,7 +35,9 @@
   "output": {
     "backlight_name": "intel_backlight",
     "enable_brightness": true,
-    "enable_color_temp": true
+    "enable_color_temp": true,
+    "transition_steps": 4,
+    "transition_interval_sec": 0.3
   },
   "interval_sec": 15.0
 }

@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
+import time
 from typing import Optional
 
 _BACKLIGHT_ROOT = Path("/sys/class/backlight")
@@ -59,6 +60,8 @@ class GnomeWaylandOutput:
         enable_color_temp: bool = True,
         dry_run: bool = False,
         state_file: Optional[Path] = None,
+        transition_steps: int = 4,
+        transition_interval_sec: float = 0.3,
     ):
         resolved_name, resolved_dir, found = _discover_backlight(backlight_name)
         self.backlight_name = resolved_name
@@ -69,6 +72,9 @@ class GnomeWaylandOutput:
         self.dry_run = dry_run
         self._max_brightness = self._read_max_brightness()
         self.state_file = state_file if state_file is not None else _default_night_light_state_path()
+        self.transition_steps = max(1, int(transition_steps))
+        self.transition_interval_sec = max(0.0, float(transition_interval_sec))
+        self._current_cct: Optional[int] = None
         self._saved_night_light: dict[str, str] = {}
         self._night_light_paused_warned = False
 
@@ -224,3 +230,63 @@ class GnomeWaylandOutput:
             self._night_light_paused_warned = False
 
         self._gsettings_set("night-light-temperature", str(int(cct)))
+        self._current_cct = int(cct)
+
+    def get_color_temperature(self) -> Optional[int]:
+        if self._current_cct is not None:
+            return self._current_cct
+        try:
+            raw = self._gsettings_get("night-light-temperature")
+            tokens = raw.strip().split()
+            if tokens:
+                return int(tokens[-1])
+        except (subprocess.CalledProcessError, ValueError, OSError):
+            pass
+        return None
+
+    def apply_transition(
+        self,
+        brightness_pct: Optional[int] = None,
+        cct: Optional[int] = None,
+    ) -> None:
+        if self.dry_run:
+            return
+        do_b = (
+            brightness_pct is not None
+            and self.enable_brightness
+            and self._backlight_available
+        )
+        do_c = cct is not None and self.enable_color_temp
+        if not do_b and not do_c:
+            return
+
+        start_b: Optional[int] = None
+        if do_b and brightness_pct is not None:
+            cur_b = self.get_brightness_pct()
+            start_b = cur_b if cur_b >= 0 else brightness_pct
+
+        start_c: Optional[int] = None
+        if do_c and cct is not None:
+            cur_c = self.get_color_temperature()
+            start_c = cur_c if cur_c is not None else cct
+
+        b_unchanged = (not do_b) or (start_b == brightness_pct)
+        c_unchanged = (not do_c) or (start_c == cct)
+        if self.transition_steps <= 1 or (b_unchanged and c_unchanged):
+            if do_b and brightness_pct is not None:
+                self.set_brightness_pct(brightness_pct)
+            if do_c and cct is not None:
+                self.set_color_temperature(cct)
+            return
+
+        steps = self.transition_steps
+        for step in range(1, steps + 1):
+            frac = step / steps
+            if do_b and brightness_pct is not None and start_b is not None:
+                step_b = int(round(start_b + (brightness_pct - start_b) * frac))
+                self.set_brightness_pct(step_b)
+            if do_c and cct is not None and start_c is not None:
+                step_c = int(round(start_c + (cct - start_c) * frac))
+                self.set_color_temperature(step_c)
+            if self.transition_interval_sec > 0.0:
+                time.sleep(self.transition_interval_sec)
