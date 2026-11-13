@@ -415,6 +415,8 @@ class WebcamAlsRgbToggle extends QuickMenuToggle {
             return _('절전 중');
         case 'paused-battery':
             return _('배터리 절약');
+        case 'paused-display-off':
+            return _('화면 꺼짐');
         case 'camera-busy':
             return _('카메라 사용 중');
         default:

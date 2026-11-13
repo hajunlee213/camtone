@@ -46,6 +46,9 @@ UNCHANGED_BEFORE_BACKOFF = 3
 
 _CYCLE_ERRORS = (subprocess.CalledProcessError, RuntimeError, OSError, ValueError)
 
+MUTTER_DISPLAY_NAME = "org.gnome.Mutter.DisplayConfig"
+MUTTER_DISPLAY_PATH = "/org/gnome/Mutter/DisplayConfig"
+
 BUS_NAME = "io.github.hajunlee213.WebcamAlsRgb"
 OBJECT_PATH = "/io/github/hajunlee213/WebcamAlsRgb"
 PAUSED_ERROR = f"{BUS_NAME}.Paused"
@@ -197,6 +200,7 @@ class Service:
         self._lock_active = False
         self._sleeping = False
         self._on_battery = False
+        self._display_off = False  # Mutter PowerSaveMode != 0 (v0.1.9): no measurements while the panel is off
         self._night = False  # inside the fixed night schedule (v0.1.9): CCT fixed, brightness still adaptive
         self._night_timer_id: Optional[int] = None
 
@@ -227,6 +231,8 @@ class Service:
             return "sleep"
         if self._lock_active:
             return "locked"
+        if self._display_off:
+            return "display-off"
         if self._svc["pause_on_battery"] and self._on_battery:
             return "battery"
         return None
@@ -410,6 +416,16 @@ class Service:
         else:
             self._resume(RESUME_DELAY_SEC)
 
+    def _on_display_power_changed(self, off: bool) -> None:
+        if off == self._display_off:
+            return
+        self._display_off = off
+        self._log("DISPLAY: off; measurement paused" if off else "DISPLAY: on")
+        if off:
+            self._pause()
+        else:
+            self._resume(RESUME_DELAY_SEC)
+
     def _on_battery_changed(self, on_battery: bool) -> None:
         if on_battery == self._on_battery:
             return
@@ -551,6 +567,16 @@ class Service:
                 self._session, "org.gnome.ScreenSaver", "/org/gnome/ScreenSaver",
                 "org.gnome.ScreenSaver", "GetActive",
             )
+            self._session.signal_subscribe(
+                MUTTER_DISPLAY_NAME,
+                "org.freedesktop.DBus.Properties",
+                "PropertiesChanged",
+                MUTTER_DISPLAY_PATH,
+                MUTTER_DISPLAY_NAME,
+                Gio.DBusSignalFlags.NONE,
+                self._on_display_signal,
+            )
+            self._display_off = self._query_display_off()
         if self._system is not None:
             self._system.signal_subscribe(
                 "org.freedesktop.login1",
@@ -601,6 +627,24 @@ class Service:
             return bool(res.unpack()[0])
         except GLib.Error:
             return False  # UPower not running: treat as AC
+
+    def _query_display_off(self) -> bool:
+        if self._session is None:
+            return False
+        try:
+            res = self._session.call_sync(
+                MUTTER_DISPLAY_NAME, MUTTER_DISPLAY_PATH, "org.freedesktop.DBus.Properties", "Get",
+                GLib.Variant("(ss)", (MUTTER_DISPLAY_NAME, "PowerSaveMode")),
+                GLib.VariantType("(v)"), Gio.DBusCallFlags.NONE, 2000, None,
+            )
+            return int(res.unpack()[0]) != 0
+        except GLib.Error:
+            return False
+
+    def _on_display_signal(self, _conn, _sender, _path, _iface, _member, params, *_rest) -> None:
+        changed = params.unpack()[1]
+        if "PowerSaveMode" in changed:
+            self._on_display_power_changed(int(changed["PowerSaveMode"]) != 0)
 
     def _on_screensaver_signal(self, _conn, _sender, _path, _iface, _member, params, *_rest) -> None:
         self._on_lock_changed(bool(params.unpack()[0]))
