@@ -289,7 +289,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.dry_run:
             print(f"[DRY-RUN] Would restore Night Light settings from {output.state_file}.")
             return 0
-        if output.restore_night_light():
+        if output.restore_night_light(force=True):
             print(f"Restored Night Light settings from {output.state_file}.")
             return 0
         return 1

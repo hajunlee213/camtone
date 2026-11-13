@@ -176,8 +176,8 @@ class GnomeWaylandOutput:
         self._gsettings_set("night-light-schedule-from", "0.0")
         self._gsettings_set("night-light-schedule-to", "24.0")
 
-    def restore_night_light(self) -> bool:
-        if not self.enable_color_temp or self.dry_run:
+    def restore_night_light(self, force: bool = False) -> bool:
+        if (not self.enable_color_temp and not force) or self.dry_run:
             return False
         if not self._saved_night_light:
             loaded = self._load_night_light_state()
