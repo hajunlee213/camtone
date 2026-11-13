@@ -153,7 +153,8 @@ export default class WebcamAlsRgbPreferences extends ExtensionPreferences {
         };
 
         const addGroup = (page, title, description) => {
-            const group = new Adw.PreferencesGroup(withSubtitle({title}, description));
+            // PreferencesGroup has 'description', not 'subtitle'.
+            const group = new Adw.PreferencesGroup(description ? {title, description} : {title});
             page.add(group);
             return group;
         };
