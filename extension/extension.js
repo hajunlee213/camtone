@@ -500,8 +500,25 @@ class WebcamAlsRgbIndicator extends SystemIndicator {
     _init(extension, settings, unit) {
         super._init();
 
+        this._settings = settings;
+
+        // Optional top bar icon (show-indicator), shown only while the service is enabled.
+        this._indicator = this._addIndicator();
+        this._indicator.icon_name = 'night-light-symbolic';
+
         this._toggle = new WebcamAlsRgbToggle(extension, settings, unit);
         this.quickSettingsItems.push(this._toggle);
+
+        this._indicatorChangedIds = [
+            settings.connect('changed::show-indicator', () => this._syncIndicator()),
+            settings.connect('changed::enabled', () => this._syncIndicator()),
+        ];
+        this._syncIndicator();
+    }
+
+    _syncIndicator() {
+        this._indicator.visible =
+            this._settings.get_boolean('show-indicator') && this._settings.get_boolean('enabled');
     }
 
     syncState() {
@@ -509,6 +526,9 @@ class WebcamAlsRgbIndicator extends SystemIndicator {
     }
 
     destroy() {
+        for (const id of this._indicatorChangedIds ?? [])
+            this._settings.disconnect(id);
+        this._indicatorChangedIds = [];
         if (this._toggle) {
             this._toggle.destroy();
             this._toggle = null;

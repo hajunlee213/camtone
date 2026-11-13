@@ -3,6 +3,11 @@ from typing import Optional, Sequence
 from .sensor import SensorReading
 
 
+# Output CCT limits. 1700K is the warm end of GNOME's own Night Light slider.
+_CCT_FLOOR_K = 1700.0
+_CCT_CEIL_K = 10000.0
+
+
 def _clamp(val: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, val))
 
@@ -117,7 +122,9 @@ class AdaptiveController:
             float(self.display_cct_min),
             float(self.display_cct_max),
         ) + self.cct_offset
-        target_cct = int(round(_clamp(raw_cct, 2500.0, 6500.0)))
+        # The display range (display-cct-min/max, schema allows up to 10000K) already bounds the map;
+        # this clamp only guards against offsets pushing past what Night Light can sensibly show.
+        target_cct = int(round(_clamp(raw_cct, _CCT_FLOOR_K, _CCT_CEIL_K)))
         return target_brightness, target_cct
 
     def update(self, reading: SensorReading, actual_brightness_pct: Optional[int] = None) -> ControlTarget:

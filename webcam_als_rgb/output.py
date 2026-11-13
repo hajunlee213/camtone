@@ -444,10 +444,11 @@ class GnomeWaylandOutput:
     def release_brightness_control(self) -> None:
         """Hand brightness back to GNOME (shell backend only): SetAutoBrightnessTarget(-1.0).
 
-        Cancels any pending brightness fade first so no later step re-takes control.
-        Not called on lock or sleep; GNOME dims the screen itself there.
+        Finishes any pending fade first (so a color fade is not left half-way and no later step
+        re-takes brightness control), then releases. Not called on lock or sleep; GNOME dims
+        the screen itself there.
         """
-        self.cancel_transition()
+        self.cancel_transition(complete=True)
         self._last_sent_brightness = None
         if self.dry_run or self._backend != BACKEND_SHELL:
             return

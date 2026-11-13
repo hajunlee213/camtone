@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# webcam-as-als-rgb 설치 스크립트 (v0.1.7)
+# webcam-as-als-rgb 설치 스크립트 (v0.1.8)
 #
 #   ./install.sh        파일을 ~/.local 아래로 복사해 설치 (일반 사용)
 #   ./install.sh --dev  복사 대신 이 저장소의 파일을 심볼릭 링크로 연결 (개발용)
@@ -54,7 +54,7 @@ LEGACY_EXT_DIR="$HOME/.local/share/gnome-shell/extensions/$LEGACY_PSR_UUID"
 SCHEMAS_USER_DIR="$HOME/.local/share/glib-2.0/schemas"
 
 echo "================================================================="
-echo "  webcam-as-als-rgb 설치 (v0.1.7)$([[ "$DEV_MODE" == true ]] && echo ' [--dev: 심볼릭 링크 모드]')"
+echo "  webcam-as-als-rgb 설치 (v0.1.8)$([[ "$DEV_MODE" == true ]] && echo ' [--dev: 심볼릭 링크 모드]')"
 echo "================================================================="
 echo ""
 
@@ -217,7 +217,7 @@ gnome-extensions enable "$EXTENSION_UUID" 2>/dev/null || true
 step "7/7: 완료."
 echo ""
 info "================================================================="
-info " webcam-as-als-rgb v0.1.7 설치가 끝났습니다."
+info " webcam-as-als-rgb v0.1.8 설치가 끝났습니다."
 info "================================================================="
 echo "다음 단계:"
 echo "  1. Wayland에서는 로그아웃 후 다시 로그인해야 새 확장이 로드됩니다."

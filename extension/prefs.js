@@ -330,7 +330,7 @@ export default class WebcamAlsRgbPreferences extends ExtensionPreferences {
 
         const indicatorGroup = addGroup(measurePage, _('상단바'));
         indicatorGroup.add(switchRow('show-indicator', _('상단바 아이콘 표시'),
-            _('v0.1.8에서 동작합니다. 지금은 설정만 저장됩니다')));
+            _('서비스가 켜져 있을 때 상단바에 아이콘을 표시합니다')));
 
         // =============================================================
         // 보정 (calibration)
