@@ -94,13 +94,56 @@ def _restore_ctrls(device: str, saved: dict[str, int]) -> None:
         _v4l2(device, f"--set-ctrl={','.join(restore_parts)}")
 
 
-def _capture_yuyv(device: str, width: int, height: int, count: int) -> np.ndarray:
+def _validate_yuyv_format(device: str, width: int, height: int) -> None:
+    """Verify via --get-fmt-video that the driver negotiated the expected YUYV format."""
+    out = _v4l2(device, "--get-fmt-video")
+    actual_w: Optional[int] = None
+    actual_h: Optional[int] = None
+    pixel_fmt: Optional[str] = None
+    bytes_per_line: Optional[int] = None
+
+    for line in out.splitlines():
+        if ":" not in line:
+            continue
+        key, val = line.split(":", 1)
+        key = key.strip()
+        val = val.strip()
+        if key == "Width/Height" and "/" in val:
+            w_str, h_str = val.split("/", 1)
+            actual_w, actual_h = int(w_str), int(h_str)
+        elif key == "Pixel Format":
+            pixel_fmt = val.split()[0].strip("'")
+        elif key == "Bytes per Line":
+            bytes_per_line = int(val)
+
+    expected_bpl = width * 2
+    if (
+        actual_w != width
+        or actual_h != height
+        or pixel_fmt != "YUYV"
+        or bytes_per_line != expected_bpl
+    ):
+        raise RuntimeError(
+            f"Unexpected V4L2 format on {device}: "
+            f"got {actual_w}x{actual_h} {pixel_fmt} bpl={bytes_per_line}, "
+            f"expected {width}x{height} YUYV bpl={expected_bpl}"
+        )
+
+
+def _capture_yuyv(
+    device: str,
+    width: int,
+    height: int,
+    count: int,
+    extra_args: tuple[str, ...] = (),
+) -> np.ndarray:
     frame_bytes = width * height * 2
     res = subprocess.run(
         [
             "v4l2-ctl",
             "-d",
             device,
+            *extra_args,
             "--stream-mmap",
             f"--stream-count={count}",
             "--stream-to=-",
@@ -109,10 +152,14 @@ def _capture_yuyv(device: str, width: int, height: int, count: int) -> np.ndarra
         check=True,
     )
     raw = res.stdout
+    if len(raw) % frame_bytes != 0:
+        raise RuntimeError(
+            f"YUYV buffer size mismatch on {device}: {len(raw)} bytes is not a multiple of {frame_bytes}"
+        )
     actual = len(raw) // frame_bytes
     if actual == 0:
         raise RuntimeError(f"Captured 0 frames from {device}")
-    arr = np.frombuffer(raw[: actual * frame_bytes], dtype=np.uint8)
+    arr = np.frombuffer(raw, dtype=np.uint8)
     return arr.reshape((actual, height, width, 2))
 
 
@@ -212,10 +259,11 @@ class WebcamSensor:
             return None
 
         saved_ctrls = _get_ctrls(self.device)
-        _v4l2(self.device, f"--set-fmt-video=width={self.width},height={self.height},pixelformat=YUYV")
         exp = self.last_exposure
 
         try:
+            _v4l2(self.device, f"--set-fmt-video=width={self.width},height={self.height},pixelformat=YUYV")
+            _validate_yuyv_format(self.device, self.width, self.height)
             ctrl_str = f"auto_exposure=1,white_balance_automatic=0,white_balance_temperature={self.wb_ref_temp}"
             if "exposure_dynamic_framerate" in saved_ctrls:
                 ctrl_str += ",exposure_dynamic_framerate=1"
