@@ -1,6 +1,7 @@
 import argparse
 import json
 from pathlib import Path
+import signal
 import subprocess
 import time
 from typing import Any
@@ -110,6 +111,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-color", action="store_true", help="Disable Night Light color temperature control")
     args = parser.parse_args(argv)
 
+    def _handle_sigterm(signum: int, frame: Any) -> None:
+        raise SystemExit(0)
+
+    signal.signal(signal.SIGTERM, _handle_sigterm)
+
     cfg = load_config(args.config)
     interval = args.interval if args.interval is not None else float(cfg["interval_sec"])
 
@@ -143,6 +149,6 @@ def main(argv: list[str] | None = None) -> int:
                 ts = time.strftime("%H:%M:%S")
                 print(f"[{ts}] WARN: cycle failed ({type(exc).__name__}: {exc})")
             time.sleep(interval)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, SystemExit):
         print("\nStopped.")
         return 0

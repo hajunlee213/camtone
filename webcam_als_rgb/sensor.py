@@ -40,6 +40,60 @@ def _v4l2(device: str, *args: str) -> str:
     return res.stdout.strip()
 
 
+_SAVED_CTRL_NAMES = (
+    "auto_exposure",
+    "white_balance_automatic",
+    "white_balance_temperature",
+    "exposure_time_absolute",
+    "exposure_dynamic_framerate",
+)
+
+
+def _get_ctrls(device: str, names: tuple[str, ...] = _SAVED_CTRL_NAMES) -> dict[str, int]:
+    """Read current integer values for V4L2 controls, ignoring unsupported ones."""
+    res = subprocess.run(
+        ["v4l2-ctl", "-d", device, "-C", ",".join(names)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    ctrls: dict[str, int] = {}
+    for line in res.stdout.splitlines():
+        if ":" not in line:
+            continue
+        key, val_part = line.split(":", 1)
+        key = key.strip()
+        tokens = val_part.strip().split()
+        if key in names and tokens:
+            try:
+                ctrls[key] = int(tokens[0])
+            except ValueError:
+                pass
+    return ctrls
+
+
+def _restore_ctrls(device: str, saved: dict[str, int]) -> None:
+    """Restore previously saved V4L2 controls (falling back to AE=3, AWB=1)."""
+    if not saved:
+        _v4l2(device, "--set-ctrl=auto_exposure=3,white_balance_automatic=1")
+        return
+
+    restore_parts: list[str] = []
+    if "exposure_dynamic_framerate" in saved:
+        restore_parts.append(f"exposure_dynamic_framerate={saved['exposure_dynamic_framerate']}")
+    if "auto_exposure" in saved:
+        restore_parts.append(f"auto_exposure={saved['auto_exposure']}")
+    if saved.get("auto_exposure") == 1 and "exposure_time_absolute" in saved:
+        restore_parts.append(f"exposure_time_absolute={saved['exposure_time_absolute']}")
+    if "white_balance_automatic" in saved:
+        restore_parts.append(f"white_balance_automatic={saved['white_balance_automatic']}")
+    if saved.get("white_balance_automatic") == 0 and "white_balance_temperature" in saved:
+        restore_parts.append(f"white_balance_temperature={saved['white_balance_temperature']}")
+
+    if restore_parts:
+        _v4l2(device, f"--set-ctrl={','.join(restore_parts)}")
+
+
 def _capture_yuyv(device: str, width: int, height: int, count: int) -> np.ndarray:
     frame_bytes = width * height * 2
     res = subprocess.run(
@@ -157,6 +211,7 @@ class WebcamSensor:
         if is_device_busy(self.device):
             return None
 
+        saved_ctrls = _get_ctrls(self.device)
         _v4l2(self.device, f"--set-fmt-video=width={self.width},height={self.height},pixelformat=YUYV")
         exp = self.last_exposure
 
@@ -223,6 +278,6 @@ class WebcamSensor:
             )
         finally:
             try:
-                _v4l2(self.device, "--set-ctrl=auto_exposure=3,white_balance_automatic=1")
+                _restore_ctrls(self.device, saved_ctrls)
             except subprocess.CalledProcessError:
                 pass
