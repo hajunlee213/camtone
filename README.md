@@ -21,8 +21,9 @@
    * 샘플링 전에 `fuser /dev/video0`로 다른 앱(Zoom, Meet 등)이 웹캠을 사용 중인지 확인해 충돌 시 해당 주기를 건너뜁니다.
    * 샘플링이 끝나면 `finally` 블록에서 즉시 **측정 전에 저장한 원래 컨트롤 값으로 원복**합니다.
 4. **Wayland GNOME 네이티브 제어**:
-   * **밝기**: `systemd-logind` D-Bus (`org.freedesktop.login1.Session.SetBrightness`) 사용 (`sudo` 불필요)
+   * **밝기**: `systemd-logind` D-Bus (`org.freedesktop.login1.Session.SetBrightness`) 사용 (`sudo` 불필요). 사용자가 시스템 슬라이더/단축키로 밝기를 직접 조절하면 그 차이를 `brightness_offset_pct`로 자동 학습해 다음 주기에도 반영합니다.
    * **색온도**: GNOME Night Light (`gsettings` `night-light-temperature`) 실시간 갱신
+   * **부드러운 분할 전환**: 밝기와 색온도 모두 현재 값에서 목표 값까지 `300ms × 4회`(총 1.2초)로 분할 보간 적용해 급격한 화면 변화를 방지합니다.
 
 ---
 
@@ -90,6 +91,9 @@ python3 run.py --config config.json
 | `controller` | `ema_alpha` | `0.35` | 지수이동평균(EMA) 계수. 작을수록 천천히 부드럽게 변함 |
 | `controller` | `brightness_deadband_pct` | `2` | 이전 적용값 대비 2% 미만 변화는 무시 (깜빡임 방지) |
 | `controller` | `cct_deadband_k` | `80` | 이전 적용값 대비 80K 미만 변화는 무시 |
+| `controller` | `brightness_offset_pct` | `0` | 수동 밝기 조절 오프셋(%). 실행 중 수동 조작 감지 시 자동으로 누적 갱신됨 |
+| `output` | `transition_steps` | `4` | 밝기·색온도 변경 시 분할 적용 단계 수 |
+| `output` | `transition_interval_sec` | `0.3` | 분할 적용 단계 간 대기 시간(초, 기본 `4 × 0.3s = 1.2s`) |
 | `(최상위)` | `interval_sec` | `15.0` | 측정 주기(초). 짧을수록 반응이 빠르지만 웹캠 LED가 자주 켜집니다. |
 
 ### CLI 옵션
@@ -160,7 +164,21 @@ journalctl --user -u webcam-als-rgb.service -f
 
 ---
 
-## 7. 알려진 한계
+## 7. Intel PSR2 패널용 GNOME Shell 리프레시 확장 (선택)
+
+Intel PSR2(Panel Self Refresh)가 적용된 노트북에서는 화면이 정지해 있을 때 Night Light 색온도 변경이 화면 전체에 즉시 반영되지 않을 수 있습니다. 이 경우 동봉된 `extension/` 디렉터리를 GNOME Shell 확장으로 설치하면, `night-light-temperature` 변경 시 `300ms × 4회` 동안 전체화면 투명 액터를 미세 토글(`0 ↔ 1`)하고 종료 즉시 숨겨(`hide()`) 드래그 앤 드롭을 방해하지 않으면서 화면 리프레시를 유도합니다.
+
+```bash
+mkdir -p ~/.local/share/gnome-shell/extensions
+ln -s /home/hajun/Project/webcam-as-als-rgb/extension \
+  ~/.local/share/gnome-shell/extensions/webcam-als-rgb-psr@hajun.github.io
+# Wayland 세션 재로그인 후 활성화:
+gnome-extensions enable webcam-als-rgb-psr@hajun.github.io
+```
+
+---
+
+## 8. 알려진 한계
 
 * **웹캠 LED 점등**: 샘플링 동안 웹캠 하드웨어 LED가 켜집니다. 밝은 환경에서는 ~0.5~1초 수준이지만, 어두운 환경에서 긴 노출이 필요할 때는 수 초~십수 초 동안 켜질 수 있습니다.
 * **화면 반사광 피드백**: 매우 어두운 방에서 흰 화면을 띄우면 모니터 빛이 얼굴에 반사되어 웹캠이 실제보다 밝거나/다른 색온도로 오인할 수 있습니다. 필요 시 `roi_mode: "border"`와 낮은 `ema_alpha`를 권장합니다.
