@@ -163,16 +163,16 @@ def _capture_yuyv(
     return arr.reshape((actual, height, width, 2))
 
 
-def _analyze_frame(
-    frame: np.ndarray,
+def _analyze_frames(
+    frames: np.ndarray,
     black_level: float = 16.0,
     roi_mode: str = "full",
 ) -> tuple[float, float, float, float, tuple[float, float, float]]:
-    """Compute luma, effective luma, saturation %, CCT (McCamy), and mean RGB."""
-    h, w, _ = frame.shape
-    y = frame[:, :, 0].astype(np.float32)
-    u = np.repeat(frame[:, 0::2, 1].astype(np.float32), 2, axis=1) - 128.0
-    v = np.repeat(frame[:, 1::2, 1].astype(np.float32), 2, axis=1) - 128.0
+    """Batch-compute luma, effective luma, saturation %, CCT (McCamy), and mean RGB."""
+    _, h, w, _ = frames.shape
+    y = frames[:, :, :, 0].astype(np.float32)
+    u = np.repeat(frames[:, :, 0::2, 1].astype(np.float32), 2, axis=2) - 128.0
+    v = np.repeat(frames[:, :, 1::2, 1].astype(np.float32), 2, axis=2) - 128.0
 
     # Optional ROI masking to reduce direct face/screen reflection bias
     if roi_mode == "border":
@@ -183,9 +183,9 @@ def _analyze_frame(
     else:
         mask = np.ones((h, w), dtype=bool)
 
-    y_roi = y[mask]
-    u_roi = u[mask]
-    v_roi = v[mask]
+    y_roi = y[:, mask]
+    u_roi = u[:, mask]
+    v_roi = v[:, mask]
 
     # Compensate YUV limited-range black floor before RGB conversion for cleaner CCT
     y_comp = np.clip(y_roi - black_level, 0.0, 255.0 - black_level) * (255.0 / (255.0 - black_level))
@@ -197,7 +197,7 @@ def _analyze_frame(
 
     rgb_norm = np.stack([r, g, b], axis=-1) / 255.0
     lin = np.where(rgb_norm <= 0.04045, rgb_norm / 12.92, ((rgb_norm + 0.055) / 1.055) ** 2.4)
-    mean_lin = lin.mean(axis=0)
+    mean_lin = lin.mean(axis=(0, 1))
 
     X, Y_xyz, Z = _SRGB_TO_XYZ @ mean_lin
     denom = X + Y_xyz + Z
@@ -290,15 +290,8 @@ class WebcamSensor:
                 warmup = 1 if len(frames) <= 3 else 2
                 usable = frames[warmup:] if len(frames) > warmup else frames
 
-                analyzed = [_analyze_frame(f, self.black_level, self.roi_mode) for f in usable]
-                luma = float(np.mean([a[0] for a in analyzed]))
-                luma_eff = float(np.mean([a[1] for a in analyzed]))
-                sat_pct = float(np.mean([a[2] for a in analyzed]))
-                cct = float(np.mean([a[3] for a in analyzed]))
-                rgb_mean = (
-                    float(np.mean([a[4][0] for a in analyzed])),
-                    float(np.mean([a[4][1] for a in analyzed])),
-                    float(np.mean([a[4][2] for a in analyzed])),
+                luma, luma_eff, sat_pct, cct, rgb_mean = _analyze_frames(
+                    usable, self.black_level, self.roi_mode
                 )
                 best_metrics = (luma, luma_eff, sat_pct, cct, rgb_mean, exp)
 
