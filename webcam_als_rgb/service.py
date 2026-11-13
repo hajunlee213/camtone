@@ -28,11 +28,15 @@ from .sensor import SensorReading, WebcamSensor
 from .settings import (
     INTERVAL_KEYS,
     OFFSET_KEY,
+    RECOMPUTE_KEYS,
     apply_controller_settings,
     load_cfg,
     open_settings,
     persist_learned_offset,
 )
+
+# Mapping-key changes wait this long before recomputing (the SpinRow emits several changes per click).
+RECOMPUTE_DEBOUNCE_MS = 300
 
 # Seconds to wait after unlock / wake before the first measurement (adaptive-tone's resume-delay-sec).
 RESUME_DELAY_SEC = 2.0
@@ -53,6 +57,7 @@ _PROP_SIGNATURES = {
     "TargetBrightness": "i",
     "TargetCct": "i",
     "LastMeasured": "x",
+    "BrightnessBackend": "s",
 }
 _PROP_DEFAULTS: dict[str, Any] = {
     "State": "starting",
@@ -61,6 +66,7 @@ _PROP_DEFAULTS: dict[str, Any] = {
     "TargetBrightness": -1,
     "TargetCct": -1,
     "LastMeasured": 0,
+    "BrightnessBackend": "none",
 }
 _INTROSPECTION_XML = f"""
 <node>
@@ -73,6 +79,7 @@ _INTROSPECTION_XML = f"""
     <property name="TargetCct" type="i" access="read"/>
     <property name="LastMeasured" type="x" access="read"/>
     <property name="NextMeasureIn" type="i" access="read"/>
+    <property name="BrightnessBackend" type="s" access="read"/>
   </interface>
 </node>
 """
@@ -113,11 +120,14 @@ def run_cycle(
         print(f"[{ts}] SKIP: {sensor.device} is busy (used by another app) [wall={wall:.2f}s cpu={cpu:.2f}s]")
         return CycleResult("busy", wall_sec=wall, cpu_sec=cpu)
 
+    # Offset learning only with the logind backend. In shell mode GNOME's slider is the offset.
+    learn_offset = output.brightness_backend == "logind"
+    controller.offset_enabled = learn_offset
     # While a fade is running the on-screen brightness is an intermediate value, not the last
     # target. Skipping the manual-change check then avoids learning a fake offset.
     actual_brightness = (
         output.get_brightness_pct()
-        if (not dry_run and output.enable_brightness and not output.transitioning)
+        if (learn_offset and not dry_run and output.enable_brightness and not output.transitioning)
         else None
     )
     target = controller.update(reading, actual_brightness_pct=actual_brightness)
@@ -188,6 +198,9 @@ class Service:
         self._on_battery = False
 
         self._state = ""
+        # Debounced recompute after mapping-key changes (v0.1.8). Keys collected in the window.
+        self._recompute_id: Optional[int] = None
+        self._recompute_keys: list[str] = []
         self._props: dict[str, Any] = dict(_PROP_DEFAULTS)
         self._session: Optional[Gio.DBusConnection] = None
         self._system: Optional[Gio.DBusConnection] = None
@@ -247,6 +260,7 @@ class Service:
             self._log(f"STATE: {self._state or 'starting'} -> {state}")
             self._state = state
             self._publish({"State": state})
+        self._publish({"BrightnessBackend": self._output.brightness_backend})
 
     # ----- timer ---------------------------------------------------------
 
@@ -323,7 +337,8 @@ class Service:
                     "LastMeasured": int(time.time()),
                 }
             )
-            persist_learned_offset(self._controller, self._settings, self._dry_run)
+            if self._controller.offset_enabled:  # logind backend only; shell mode never learns
+                persist_learned_offset(self._controller, self._settings, self._dry_run)
 
         self._refresh_state()
         if self._pause_reason() is None:
@@ -376,12 +391,26 @@ class Service:
 
         ocfg = cfg["output"]
         prev_color = self._output.enable_color_temp
+        prev_bright = self._output.enable_brightness
         self._output.enable_brightness = bool(ocfg["enable_brightness"])
         self._output.enable_color_temp = bool(ocfg["enable_color_temp"])
         if prev_color and not self._output.enable_color_temp:
             self._output.restore_night_light(force=True)
         elif self._output.enable_color_temp and not prev_color and not self._dry_run:
             self._output.ensure_night_light_active()
+        if prev_bright and not self._output.enable_brightness:
+            self._output.release_brightness_control()  # hand brightness back to GNOME
+
+        if key == "auto-brightness" or key == "auto-color-temp":
+            turned_on = (not prev_bright and self._output.enable_brightness) or (
+                not prev_color and self._output.enable_color_temp
+            )
+            if turned_on:
+                # Re-apply at once; the applied values may be stale from while the feature was off.
+                self._controller.invalidate_applied()
+                self._do_recompute("enabled")
+        elif key in RECOMPUTE_KEYS:
+            self._schedule_recompute(key)
 
         self._svc = dict(cfg["service"])
         if key in INTERVAL_KEYS or key == "pause-on-battery":
@@ -393,6 +422,58 @@ class Service:
                 self._schedule(0.0)
             else:
                 self._schedule(self._interval)
+
+    # ----- live recompute (v0.1.8, A2) -----------------------------------
+
+    def _schedule_recompute(self, key: str) -> None:
+        if key not in self._recompute_keys:
+            self._recompute_keys.append(key)
+        if self._recompute_id is not None:
+            GLib.source_remove(self._recompute_id)
+        self._recompute_id = GLib.timeout_add(RECOMPUTE_DEBOUNCE_MS, self._on_recompute_timeout)
+
+    def _cancel_recompute(self) -> None:
+        if self._recompute_id is not None:
+            GLib.source_remove(self._recompute_id)
+        self._recompute_id = None
+        self._recompute_keys = []
+
+    def _on_recompute_timeout(self) -> bool:
+        self._recompute_id = None
+        reason = ",".join(self._recompute_keys) or "settings"
+        self._recompute_keys = []
+        try:
+            self._do_recompute(reason)
+        except Exception as exc:  # a GLib callback must not leave the loop in a bad state
+            self._log(f"ERROR: recompute failed ({type(exc).__name__}: {exc})")
+        return False
+
+    def _do_recompute(self, reason: str) -> None:
+        """Re-derive the target from the stored EMA state and apply it. No measurement is taken."""
+        if self._pause_reason() is not None:
+            return  # the next measurement after resume applies the new settings
+        out = self._output
+        self._controller.offset_enabled = out.brightness_backend == "logind"
+        target = self._controller.recompute(
+            want_brightness=out.enable_brightness,
+            want_cct=out.enable_color_temp,
+        )
+        if target is None:
+            return  # no measurement yet; the first cycle will apply the settings
+        b_target = target.brightness_pct if target.apply_brightness else None
+        c_target = target.cct if target.apply_cct else None
+        actions = []
+        if b_target is not None:
+            actions.append(f"brightness={b_target}%")
+        if c_target is not None:
+            actions.append(f"cct={c_target}K")
+        if b_target is not None or c_target is not None:
+            out.apply_transition(brightness_pct=b_target, cct=c_target)
+        self._publish({"TargetBrightness": int(target.brightness_pct), "TargetCct": int(target.cct)})
+        status = f"APPLIED: {', '.join(actions)}" if actions else "NO-CHANGE"
+        self._log(
+            f"RECOMPUTE ({reason}) | target=({target.brightness_pct}%, {target.cct}K) [{status}]"
+        )
 
     # ----- system bus / session bus subscriptions ------------------------
 
@@ -569,7 +650,9 @@ class Service:
 
     def _shutdown(self) -> int:
         self._cancel_timer()
+        self._cancel_recompute()
         self._output.cancel_transition(complete=True)
+        self._output.release_brightness_control()
         if not self._dry_run:
             if self._output.restore_night_light(force=True):
                 self._log("Night Light restored")
