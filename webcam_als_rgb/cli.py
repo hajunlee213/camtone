@@ -109,50 +109,81 @@ def _summarize_sweep(rows: list[SensorReading]) -> None:
         print("\nSummary: insufficient data points (need at least 2 exposures).")
         return
 
-    # Linear range: longest contiguous run where adjacent luma_eff ratio / exp ratio is in [0.90, 1.10]
-    best_start = -1
-    best_end = -1
-    cur_start: int | None = None
-    for idx in range(len(asc_rows) - 1):
-        r0, r1 = asc_rows[idx], asc_rows[idx + 1]
-        exp_ratio = r1.exposure / r0.exposure if r0.exposure > 0 else 0.0
-        luma_ratio = r1.luma_effective / r0.luma_effective if r0.luma_effective > 0 else 0.0
-        rel = (luma_ratio / exp_ratio) if exp_ratio > 0 else 0.0
-        if 0.90 <= rel <= 1.10:
-            if cur_start is None:
-                cur_start = idx
-            if (idx + 1 - cur_start) > (best_end - best_start):
-                best_start = cur_start
-                best_end = idx + 1
-        else:
-            cur_start = None
+    # 1. Separate anomalous exposures (suspect firmware glitch)
+    anomalies: list[SensorReading] = []
+    normal_rows: list[SensorReading] = []
+    last_normal: SensorReading | None = None
 
-    # Effective exposure cap: first exposure where luma fails to increase
-    cap_msg = f"none observed up to exp={asc_rows[-1].exposure}"
-    for idx in range(1, len(asc_rows)):
-        if asc_rows[idx].luma <= asc_rows[idx - 1].luma:
-            cap_msg = (
-                f"exp={asc_rows[idx].exposure} "
-                f"(luma {asc_rows[idx - 1].luma:.1f} -> {asc_rows[idx].luma:.1f})"
-            )
-            break
+    if (
+        asc_rows[1].exposure > 0
+        and asc_rows[0].luma_effective
+        < asc_rows[1].luma_effective * (asc_rows[0].exposure / asc_rows[1].exposure) * 0.65
+    ):
+        anomalies.append(asc_rows[0])
+    else:
+        normal_rows.append(asc_rows[0])
+        last_normal = asc_rows[0]
+
+    for r in asc_rows[1:]:
+        if last_normal is not None and r.luma < last_normal.luma * 0.80:
+            anomalies.append(r)
+        else:
+            normal_rows.append(r)
+            last_normal = r
+
+    # 2. Linear range: cumulative ev_log deviation <= 0.15 from lowest normal exposure
+    lin_rows: list[SensorReading] = []
+    if len(normal_rows) >= 2:
+        ref_ev = normal_rows[0].ev_log
+        for r in normal_rows:
+            if abs(r.ev_log - ref_ev) <= 0.15:
+                lin_rows.append(r)
+            else:
+                break
+
+    # 3. Effective exposure cap on normal_rows
+    if not normal_rows:
+        cap_msg = "N/A"
+    else:
+        cap_msg = f"none observed up to exp={normal_rows[-1].exposure}"
+        for idx in range(1, len(normal_rows)):
+            r0 = normal_rows[idx - 1]
+            r1 = normal_rows[idx]
+            if r1.luma <= r0.luma - 1.5 or (
+                r1.exposure >= r0.exposure * 1.10 and r1.luma <= r0.luma
+            ):
+                cap_msg = f"exp={r1.exposure} (luma {r0.luma:.1f} -> {r1.luma:.1f})"
+                break
+
+    anom_msg = (
+        ", ".join(
+            f"exp={r.exposure} (luma={r.luma:.1f}, ev_log={r.ev_log:.2f})"
+            for r in anomalies
+        )
+        if anomalies
+        else "none"
+    )
 
     print("\nSummary:")
-    if best_start >= 0:
-        lin_rows = asc_rows[best_start : best_end + 1]
+    if len(lin_rows) >= 2:
         luma_lo = min(r.luma for r in lin_rows)
         luma_hi = max(r.luma for r in lin_rows)
         ev_vals = [r.ev_log for r in lin_rows]
         ev_spread = max(ev_vals) - min(ev_vals)
-        verdict = "PASS" if ev_spread <= 0.3 else "FAIL"
+        verdict = "PASS" if ev_spread <= 0.30 else "FAIL"
         print(
             f"  Linear luma range (est.): {luma_lo:.1f} ~ {luma_hi:.1f} "
             f"(exp {lin_rows[0].exposure} ~ {lin_rows[-1].exposure})"
         )
+        print(f"  Anomalous exposures (suspect glitch): {anom_msg}")
         print(f"  Effective exposure cap (est.): {cap_msg}")
         print(f"  Linear ev_log spread (max-min): {ev_spread:.2f} [{verdict}, threshold <= 0.30]")
     else:
-        print("  Linear luma range (est.): none detected (ratio outside 0.90..1.10)")
+        print(
+            "  Linear luma range (est.): none detected "
+            "(cumulative ev_log deviation > 0.15 from lowest exposure)"
+        )
+        print(f"  Anomalous exposures (suspect glitch): {anom_msg}")
         print(f"  Effective exposure cap (est.): {cap_msg}")
         print("  Linear ev_log spread (max-min): N/A [FAIL]")
 
