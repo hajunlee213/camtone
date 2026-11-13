@@ -13,5 +13,6 @@
   ],
   "settings-schema": "org.gnome.shell.extensions.webcam-als-rgb",
   "gettext-domain": "webcam-als-rgb",
-  "version": 2
+  "version": 3,
+  "version-name": "0.1.7"
 }
