@@ -230,6 +230,11 @@ def main(argv: list[str] | None = None) -> int:
         default="asc",
         help="Exposure order for --sweep (default: asc)",
     )
+    parser.add_argument(
+        "--restore-night-light",
+        action="store_true",
+        help="Restore Night Light settings from saved state file and exit without measuring",
+    )
     args = parser.parse_args(argv)
 
     def _handle_sigterm(signum: int, frame: Any) -> None:
@@ -238,6 +243,25 @@ def main(argv: list[str] | None = None) -> int:
     signal.signal(signal.SIGTERM, _handle_sigterm)
 
     cfg = load_config(args.config)
+    out_cfg = dict(cfg["output"])
+    if args.no_brightness:
+        out_cfg["enable_brightness"] = False
+    if args.no_color:
+        out_cfg["enable_color_temp"] = False
+
+    if args.restore_night_light:
+        output = GnomeWaylandOutput(**out_cfg, dry_run=args.dry_run)
+        if not output.state_file.exists():
+            print(f"No Night Light state file found at {output.state_file}; nothing to restore.")
+            return 0
+        if args.dry_run:
+            print(f"[DRY-RUN] Would restore Night Light settings from {output.state_file}.")
+            return 0
+        if output.restore_night_light():
+            print(f"Restored Night Light settings from {output.state_file}.")
+            return 0
+        return 1
+
     interval = args.interval if args.interval is not None else float(cfg["interval_sec"])
 
     sensor = WebcamSensor(**cfg["sensor"])
@@ -249,11 +273,6 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
     controller = AdaptiveController(**cfg["controller"])
-    out_cfg = dict(cfg["output"])
-    if args.no_brightness:
-        out_cfg["enable_brightness"] = False
-    if args.no_color:
-        out_cfg["enable_color_temp"] = False
     output = GnomeWaylandOutput(**out_cfg, dry_run=args.dry_run)
 
     if not args.dry_run:

@@ -1,5 +1,9 @@
+import json
+import os
 from pathlib import Path
 import subprocess
+import tempfile
+from typing import Optional
 
 _BACKLIGHT_ROOT = Path("/sys/class/backlight")
 _TYPE_PRIORITY = {"raw": 0, "platform": 1, "firmware": 2}
@@ -11,6 +15,12 @@ _NIGHT_LIGHT_KEYS = (
     "night-light-schedule-to",
     "night-light-temperature",
 )
+
+
+def _default_night_light_state_path() -> Path:
+    xdg_state = os.environ.get("XDG_STATE_HOME", "").strip()
+    base = Path(xdg_state) if xdg_state else (Path.home() / ".local" / "state")
+    return base / "webcam-as-als-rgb" / "night-light.json"
 
 
 def _discover_backlight(preferred_name: str) -> tuple[str, Path, bool]:
@@ -48,6 +58,7 @@ class GnomeWaylandOutput:
         enable_brightness: bool = True,
         enable_color_temp: bool = True,
         dry_run: bool = False,
+        state_file: Optional[Path] = None,
     ):
         resolved_name, resolved_dir, found = _discover_backlight(backlight_name)
         self.backlight_name = resolved_name
@@ -57,6 +68,7 @@ class GnomeWaylandOutput:
         self.enable_color_temp = enable_color_temp
         self.dry_run = dry_run
         self._max_brightness = self._read_max_brightness()
+        self.state_file = state_file if state_file is not None else _default_night_light_state_path()
         self._saved_night_light: dict[str, str] = {}
         self._night_light_paused_warned = False
 
@@ -112,29 +124,86 @@ class GnomeWaylandOutput:
             check=True,
         )
 
+    def _load_night_light_state(self) -> Optional[dict[str, str]]:
+        if not self.state_file.exists():
+            return None
+        try:
+            data = json.loads(self.state_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"WARN: failed to read Night Light state file {self.state_file}: {exc}")
+            return None
+        if not isinstance(data, dict):
+            print(f"WARN: invalid Night Light state file {self.state_file}; ignoring")
+            return None
+        return {str(k): str(v) for k, v in data.items() if k in _NIGHT_LIGHT_KEYS}
+
+    def _save_night_light_state(self, state: dict[str, str]) -> None:
+        self.state_file.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp_name = tempfile.mkstemp(
+            prefix=".night-light-",
+            suffix=".tmp",
+            dir=str(self.state_file.parent),
+        )
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                json.dump(state, fh, indent=2, sort_keys=True)
+            os.replace(tmp_name, self.state_file)
+        except Exception:
+            try:
+                os.unlink(tmp_name)
+            except OSError:
+                pass
+            raise
+
     def ensure_night_light_active(self) -> None:
         if not self.enable_color_temp or self.dry_run:
             return
-        if not self._saved_night_light:
+        loaded = self._load_night_light_state()
+        if loaded is not None:
+            self._saved_night_light = loaded
+        elif not self._saved_night_light:
+            saved: dict[str, str] = {}
             for key in _NIGHT_LIGHT_KEYS:
                 try:
-                    self._saved_night_light[key] = self._gsettings_get(key)
+                    saved[key] = self._gsettings_get(key)
                 except subprocess.CalledProcessError:
                     pass
+            self._saved_night_light = saved
+            if saved:
+                self._save_night_light_state(saved)
         self._gsettings_set("night-light-enabled", "true")
         self._gsettings_set("night-light-schedule-automatic", "false")
         self._gsettings_set("night-light-schedule-from", "0.0")
         self._gsettings_set("night-light-schedule-to", "24.0")
 
-    def restore_night_light(self) -> None:
-        if not self.enable_color_temp or self.dry_run or not self._saved_night_light:
-            return
+    def restore_night_light(self) -> bool:
+        if not self.enable_color_temp or self.dry_run:
+            return False
+        if not self._saved_night_light:
+            loaded = self._load_night_light_state()
+            if loaded:
+                self._saved_night_light = loaded
+        if not self._saved_night_light:
+            return False
+        failed_keys: list[str] = []
         for key, value in self._saved_night_light.items():
             try:
                 self._gsettings_set(key, value)
             except subprocess.CalledProcessError:
-                pass
+                failed_keys.append(key)
+        if failed_keys:
+            print(
+                f"WARN: failed to restore Night Light keys ({', '.join(failed_keys)}); "
+                f"keeping state file {self.state_file}"
+            )
+            return False
+        if self.state_file.exists():
+            try:
+                self.state_file.unlink()
+            except OSError as exc:
+                print(f"WARN: failed to remove Night Light state file {self.state_file}: {exc}")
         self._saved_night_light.clear()
+        return True
 
     def set_color_temperature(self, cct: int) -> None:
         if not self.enable_color_temp or self.dry_run:
