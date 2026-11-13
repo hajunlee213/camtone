@@ -8,7 +8,7 @@ from typing import Any
 
 from .controller import AdaptiveController
 from .output import GnomeWaylandOutput
-from .sensor import WebcamSensor
+from .sensor import SensorReading, WebcamSensor, get_exposure_range
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "sensor": {
@@ -102,6 +102,111 @@ def run_cycle(
     )
 
 
+def _summarize_sweep(rows: list[SensorReading]) -> None:
+    asc_rows = sorted(rows, key=lambda r: r.exposure)
+    if len(asc_rows) < 2:
+        print("\nSummary: insufficient data points (need at least 2 exposures).")
+        return
+
+    # Linear range: longest contiguous run where adjacent luma_eff ratio / exp ratio is in [0.85, 1.15]
+    best_start = -1
+    best_end = -1
+    cur_start: int | None = None
+    for idx in range(len(asc_rows) - 1):
+        r0, r1 = asc_rows[idx], asc_rows[idx + 1]
+        exp_ratio = r1.exposure / r0.exposure if r0.exposure > 0 else 0.0
+        luma_ratio = r1.luma_effective / r0.luma_effective if r0.luma_effective > 0 else 0.0
+        rel = (luma_ratio / exp_ratio) if exp_ratio > 0 else 0.0
+        if 0.85 <= rel <= 1.15:
+            if cur_start is None:
+                cur_start = idx
+            if (idx + 1 - cur_start) > (best_end - best_start):
+                best_start = cur_start
+                best_end = idx + 1
+        else:
+            cur_start = None
+
+    # Effective exposure cap: first exposure where luma fails to increase
+    cap_msg = f"none observed up to exp={asc_rows[-1].exposure}"
+    for idx in range(1, len(asc_rows)):
+        if asc_rows[idx].luma <= asc_rows[idx - 1].luma:
+            cap_msg = (
+                f"exp={asc_rows[idx].exposure} "
+                f"(luma {asc_rows[idx - 1].luma:.1f} -> {asc_rows[idx].luma:.1f})"
+            )
+            break
+
+    print("\nSummary:")
+    if best_start >= 0:
+        lin_rows = asc_rows[best_start : best_end + 1]
+        luma_lo = min(r.luma for r in lin_rows)
+        luma_hi = max(r.luma for r in lin_rows)
+        ev_vals = [r.ev_log for r in lin_rows]
+        ev_spread = max(ev_vals) - min(ev_vals)
+        verdict = "PASS" if ev_spread <= 0.3 else "FAIL"
+        print(
+            f"  Linear luma range (est.): {luma_lo:.1f} ~ {luma_hi:.1f} "
+            f"(exp {lin_rows[0].exposure} ~ {lin_rows[-1].exposure})"
+        )
+        print(f"  Effective exposure cap (est.): {cap_msg}")
+        print(f"  Linear ev_log spread (max-min): {ev_spread:.2f} [{verdict}, threshold <= 0.30]")
+    else:
+        print("  Linear luma range (est.): none detected (ratio outside 0.85..1.15)")
+        print(f"  Effective exposure cap (est.): {cap_msg}")
+        print("  Linear ev_log spread (max-min): N/A [FAIL]")
+
+
+def run_sweep(sensor: WebcamSensor, exposures_str: str, order: str) -> int:
+    try:
+        exposures = [int(tok.strip()) for tok in exposures_str.split(",") if tok.strip()]
+    except ValueError as exc:
+        print(f"ERROR: invalid --sweep-exposures value ({exc})")
+        return 1
+    if not exposures:
+        print("ERROR: --sweep-exposures is empty")
+        return 1
+
+    exposures = sorted(exposures, reverse=(order == "desc"))
+    hw_range = get_exposure_range(sensor.device)
+    if hw_range is not None:
+        hw_min, hw_max = hw_range
+        filtered: list[int] = []
+        for exp in exposures:
+            if hw_min <= exp <= hw_max:
+                filtered.append(exp)
+            else:
+                print(
+                    f"WARN: skipping exp={exp} "
+                    f"(outside camera exposure_time_absolute range {hw_min}..{hw_max})"
+                )
+        exposures = filtered
+        if not exposures:
+            print("ERROR: no exposures remain within camera range")
+            return 1
+
+    print(
+        f"Sweep diagnostics on {sensor.device} "
+        f"(gamma={sensor.gamma}, yuv_range={sensor.yuv_range}, order={order})"
+    )
+    print("  exp |  luma | luma_eff | sat_pct |  ev_log | ev_log_gamma1 | amb_cct")
+    print("------+-------+----------+---------+---------+---------------+--------")
+    rows: list[SensorReading] = []
+    for exp in exposures:
+        reading = sensor.sample_fixed(exp)
+        if reading is None:
+            print(f"ERROR: {sensor.device} is busy (used by another app)")
+            return 2
+        rows.append(reading)
+        print(
+            f"{reading.exposure:5d} | {reading.luma:5.1f} | {reading.luma_effective:8.1f} | "
+            f"{reading.sat_pct:6.2f}% | {reading.ev_log:7.2f} | "
+            f"{reading.ev_log_gamma1:13.2f} | {reading.cct:6.0f}K"
+        )
+
+    _summarize_sweep(rows)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="webcam-as-als-rgb",
@@ -113,6 +218,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--interval", type=float, help="Polling interval in seconds (overrides config)")
     parser.add_argument("--no-brightness", action="store_true", help="Disable backlight control")
     parser.add_argument("--no-color", action="store_true", help="Disable Night Light color temperature control")
+    parser.add_argument("--sweep", action="store_true", help="Run fixed-exposure diagnostic sweep (never modifies display)")
+    parser.add_argument(
+        "--sweep-exposures",
+        default="200,400,800,1200,1600,2400,3200,4800,6400",
+        help="Comma-separated exposure list for --sweep",
+    )
+    parser.add_argument(
+        "--sweep-order",
+        choices=("asc", "desc"),
+        default="asc",
+        help="Exposure order for --sweep (default: asc)",
+    )
     args = parser.parse_args(argv)
 
     def _handle_sigterm(signum: int, frame: Any) -> None:
@@ -124,6 +241,13 @@ def main(argv: list[str] | None = None) -> int:
     interval = args.interval if args.interval is not None else float(cfg["interval_sec"])
 
     sensor = WebcamSensor(**cfg["sensor"])
+    if args.sweep:
+        try:
+            return run_sweep(sensor, args.sweep_exposures, args.sweep_order)
+        except (KeyboardInterrupt, SystemExit):
+            print("\nStopped.")
+            return 0
+
     controller = AdaptiveController(**cfg["controller"])
     out_cfg = dict(cfg["output"])
     if args.no_brightness:

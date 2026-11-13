@@ -1,8 +1,11 @@
 from dataclasses import dataclass
 import math
+import re
 import subprocess
-from typing import Optional
+from typing import Callable, Optional, TypeVar
 import numpy as np
+
+_T = TypeVar("_T")
 
 # sRGB (D65) -> CIE XYZ conversion matrix
 _SRGB_TO_XYZ = np.array([
@@ -22,6 +25,7 @@ class SensorReading:
     cct: float
     sat_pct: float
     rgb_mean: tuple[float, float, float]
+    ev_log_gamma1: float = 0.0
 
 
 def is_device_busy(device: str) -> bool:
@@ -38,6 +42,22 @@ def _v4l2(device: str, *args: str) -> str:
         check=True,
     )
     return res.stdout.strip()
+
+
+def get_exposure_range(device: str) -> Optional[tuple[int, int]]:
+    """Return (min, max) for exposure_time_absolute on the device, or None if unavailable."""
+    try:
+        out = _v4l2(device, "-l")
+    except (subprocess.CalledProcessError, OSError):
+        return None
+    for line in out.splitlines():
+        if "exposure_time_absolute" not in line:
+            continue
+        m_min = re.search(r"\bmin=(-?\d+)\b", line)
+        m_max = re.search(r"\bmax=(-?\d+)\b", line)
+        if m_min and m_max:
+            return int(m_min.group(1)), int(m_max.group(1))
+    return None
 
 
 _SAVED_CTRL_NAMES = (
@@ -169,8 +189,8 @@ def _analyze_frames(
     roi_mode: str = "full",
     yuv_range: str = "limited",
     gamma: float = 1.0,
-) -> tuple[float, float, float, float, float, tuple[float, float, float]]:
-    """Batch-compute luma, effective luma, linear luma mean, saturation %, CCT (McCamy), and mean RGB."""
+) -> tuple[float, float, float, float, float, float, tuple[float, float, float]]:
+    """Batch-compute luma, effective luma, linear luma means (gamma and gamma=1), saturation %, CCT, and mean RGB."""
     _, h, w, _ = frames.shape
     y = frames[:, :, :, 0].astype(np.float32)
     u = np.repeat(frames[:, :, 0::2, 1].astype(np.float32), 2, axis=2) - 128.0
@@ -230,11 +250,12 @@ def _analyze_frames(
         cct = 6500.0
 
     y_norm = np.clip((y_roi - eff_black) / y_span, 0.0, 1.0)
-    luma_lin_mean = float(y_norm.mean()) if gamma == 1.0 else float((y_norm ** gamma).mean())
+    luma_lin_gamma1 = float(y_norm.mean())
+    luma_lin_mean = luma_lin_gamma1 if gamma == 1.0 else float((y_norm ** gamma).mean())
     luma_mean = float(y_roi.mean())
     luma_eff = max(luma_mean - eff_black, 0.5)
     rgb_mean = (float(r.mean()), float(g.mean()), float(b.mean()))
-    return luma_mean, luma_eff, luma_lin_mean, sat_pct, cct, rgb_mean
+    return luma_mean, luma_eff, luma_lin_mean, luma_lin_gamma1, sat_pct, cct, rgb_mean
 
 
 class WebcamSensor:
@@ -289,61 +310,108 @@ class WebcamSensor:
             abs(luma - self.target_luma_setpoint),
         )
 
+    def _run_with_saved_ctrls(self, fn: Callable[[dict[str, int]], _T]) -> Optional[_T]:
+        """Run a capture function with device-busy check and V4L2 control save/restore."""
+        if is_device_busy(self.device):
+            return None
+        saved_ctrls = _get_ctrls(self.device)
+        try:
+            return fn(saved_ctrls)
+        finally:
+            try:
+                _restore_ctrls(self.device, saved_ctrls)
+            except subprocess.CalledProcessError:
+                pass
+
+    def _capture_at_exposure(
+        self,
+        exp: int,
+        saved_ctrls: dict[str, int],
+        is_first_step: bool,
+    ) -> tuple[float, float, float, float, float, float, tuple[float, float, float]]:
+        if is_first_step:
+            ctrl_str = f"auto_exposure=1,white_balance_automatic=0,white_balance_temperature={self.wb_ref_temp}"
+            if "exposure_dynamic_framerate" in saved_ctrls:
+                ctrl_str += ",exposure_dynamic_framerate=1"
+            fmt_arg = f"--set-fmt-video=width={self.width},height={self.height},pixelformat=YUYV"
+            extra_args: tuple[str, ...] = (
+                fmt_arg,
+                f"--set-ctrl={ctrl_str},exposure_time_absolute={exp}",
+            )
+        else:
+            extra_args = (f"--set-ctrl=exposure_time_absolute={exp}",)
+
+        frame_count = 3 if exp >= 1000 else 5
+        frames = _capture_yuyv(
+            self.device,
+            self.width,
+            self.height,
+            count=frame_count,
+            extra_args=extra_args,
+        )
+        if is_first_step:
+            _validate_yuyv_format(self.device, self.width, self.height)
+        warmup = 1 if len(frames) <= 3 else 2
+        usable = frames[warmup:] if len(frames) > warmup else frames
+        return _analyze_frames(usable, self.black_level, self.roi_mode, self.yuv_range, self.gamma)
+
+    def _build_reading(
+        self,
+        metrics: tuple[float, float, float, float, float, float, tuple[float, float, float]],
+        final_exp: int,
+    ) -> SensorReading:
+        luma, luma_eff, luma_lin_mean, luma_lin_gamma1, sat_pct, cct, rgb_mean = metrics
+        luma_lin = max(1e-4, min(1.0, luma_lin_mean))
+        ev_index = luma_lin / (final_exp / 100.0)
+        ev_log = math.log2(max(ev_index, 1e-6))
+        ev_index_g1 = max(1e-4, min(1.0, luma_lin_gamma1)) / (final_exp / 100.0)
+        ev_log_gamma1 = math.log2(max(ev_index_g1, 1e-6))
+        return SensorReading(
+            luma=luma,
+            luma_effective=luma_eff,
+            exposure=final_exp,
+            ev_index=ev_index,
+            ev_log=ev_log,
+            cct=cct,
+            sat_pct=sat_pct,
+            rgb_mean=rgb_mean,
+            ev_log_gamma1=ev_log_gamma1,
+        )
+
+    def sample_fixed(self, exp: int) -> Optional[SensorReading]:
+        """Capture frames once at a fixed exposure without auto-ranging."""
+        def _measure(saved_ctrls: dict[str, int]) -> SensorReading:
+            metrics = self._capture_at_exposure(exp, saved_ctrls, is_first_step=True)
+            return self._build_reading(metrics, exp)
+
+        return self._run_with_saved_ctrls(_measure)
+
     def sample(self) -> Optional[SensorReading]:
         """Capture frames using manual AE/AWB with auto-ranging exposure.
 
         Returns None if the camera is currently busy (e.g., video call).
         Always restores auto_exposure=3 and white_balance_automatic=1 afterward.
         """
-        if is_device_busy(self.device):
-            return None
-
-        saved_ctrls = _get_ctrls(self.device)
-        exp = self.last_exposure
-
-        try:
-            ctrl_str = f"auto_exposure=1,white_balance_automatic=0,white_balance_temperature={self.wb_ref_temp}"
-            if "exposure_dynamic_framerate" in saved_ctrls:
-                ctrl_str += ",exposure_dynamic_framerate=1"
-            fmt_arg = f"--set-fmt-video=width={self.width},height={self.height},pixelformat=YUYV"
-
+        def _measure(saved_ctrls: dict[str, int]) -> SensorReading:
+            exp = self.last_exposure
             best_metrics = None
             best_score = None
+            best_exp = exp
             for step_idx in range(3):
-                if step_idx == 0:
-                    extra_args: tuple[str, ...] = (
-                        fmt_arg,
-                        f"--set-ctrl={ctrl_str},exposure_time_absolute={exp}",
-                    )
-                else:
-                    extra_args = (f"--set-ctrl=exposure_time_absolute={exp}",)
-
-                frame_count = 3 if exp >= 1000 else 5
-                frames = _capture_yuyv(
-                    self.device,
-                    self.width,
-                    self.height,
-                    count=frame_count,
-                    extra_args=extra_args,
-                )
-                if step_idx == 0:
-                    _validate_yuyv_format(self.device, self.width, self.height)
-                warmup = 1 if len(frames) <= 3 else 2
-                usable = frames[warmup:] if len(frames) > warmup else frames
-
-                luma, luma_eff, luma_lin_mean, sat_pct, cct, rgb_mean = _analyze_frames(
-                    usable, self.black_level, self.roi_mode, self.yuv_range, self.gamma
-                )
+                metrics = self._capture_at_exposure(exp, saved_ctrls, is_first_step=(step_idx == 0))
+                luma, _luma_eff, luma_lin_mean, _luma_lin_g1, sat_pct, _cct, _rgb = metrics
                 score = self._candidate_score(luma, sat_pct)
                 if best_score is None or score < best_score:
                     best_score = score
-                    best_metrics = (luma, luma_eff, luma_lin_mean, sat_pct, cct, rgb_mean, exp)
+                    best_metrics = metrics
+                    best_exp = exp
 
                 in_range = self.target_luma_min <= luma <= self.target_luma_max and sat_pct <= 2.0
                 at_low_limit = exp <= self.min_exposure and (luma > self.target_luma_max or sat_pct > 2.0)
                 at_high_limit = exp >= self.max_exposure and luma < self.target_luma_min
                 if in_range or at_low_limit or at_high_limit:
-                    best_metrics = (luma, luma_eff, luma_lin_mean, sat_pct, cct, rgb_mean, exp)
+                    best_metrics = metrics
+                    best_exp = exp
                     break
 
                 # Proportional exposure step toward target_luma_setpoint in linear light space
@@ -362,23 +430,7 @@ class WebcamSensor:
                 exp = next_exp
 
             assert best_metrics is not None
-            luma, luma_eff, luma_lin_mean, sat_pct, cct, rgb_mean, final_exp = best_metrics
-            self.last_exposure = final_exp
-            luma_lin = max(1e-4, min(1.0, luma_lin_mean))
-            ev_index = luma_lin / (final_exp / 100.0)
-            ev_log = math.log2(max(ev_index, 1e-6))
-            return SensorReading(
-                luma=luma,
-                luma_effective=luma_eff,
-                exposure=final_exp,
-                ev_index=ev_index,
-                ev_log=ev_log,
-                cct=cct,
-                sat_pct=sat_pct,
-                rgb_mean=rgb_mean,
-            )
-        finally:
-            try:
-                _restore_ctrls(self.device, saved_ctrls)
-            except subprocess.CalledProcessError:
-                pass
+            self.last_exposure = best_exp
+            return self._build_reading(best_metrics, best_exp)
+
+        return self._run_with_saved_ctrls(_measure)
