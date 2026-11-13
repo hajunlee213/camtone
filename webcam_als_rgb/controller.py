@@ -27,8 +27,9 @@ class ControlTarget:
 class AdaptiveController:
     def __init__(
         self,
-        ev_log_min: float = -1.0,
-        ev_log_max: float = 5.5,
+        # TODO(calibration): estimated values after ADD-01 gamma correction; tune with --dry-run
+        ev_log_min: float = -10.0,
+        ev_log_max: float = -3.5,
         brightness_min_pct: int = 15,
         brightness_max_pct: int = 95,
         ambient_cct_min: float = 2800.0,

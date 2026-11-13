@@ -129,6 +129,7 @@ class WebcamSensor:
         max_exposure: int = 10000,
         initial_exposure: int = 350,
         black_level: float = 16.0,
+        gamma: float = 2.2,
         target_luma_min: float = 65.0,
         target_luma_max: float = 155.0,
         roi_mode: str = "full",
@@ -141,6 +142,8 @@ class WebcamSensor:
         self.max_exposure = max_exposure
         self.last_exposure = max(min_exposure, min(max_exposure, initial_exposure))
         self.black_level = black_level
+        # TODO(calibration): verify effective camera gamma (2.2 sRGB assumption vs V4L2 gamma control)
+        self.gamma = gamma
         self.target_luma_min = target_luma_min
         self.target_luma_max = target_luma_max
         self.roi_mode = roi_mode
@@ -187,9 +190,13 @@ class WebcamSensor:
                 if in_range or at_low_limit or at_high_limit:
                     break
 
-                # Proportional exposure step toward target luma (~105)
-                target_eff = 105.0 - self.black_level
-                ratio = target_eff / max(luma_eff, 1.0)
+                # Proportional exposure step toward target luma (~105) in linear light space
+                y_span = max(235.0 - self.black_level, 1.0)
+                cur_norm = max(1e-4, min(1.0, luma_eff / y_span))
+                cur_lin = cur_norm ** self.gamma
+                target_norm = max(1e-4, min(1.0, (105.0 - self.black_level) / y_span))
+                target_lin = target_norm ** self.gamma
+                ratio = target_lin / max(cur_lin, 1e-6)
                 ratio = max(0.25, min(4.0, ratio))
                 next_exp = int(round(exp * ratio))
                 next_exp = max(self.min_exposure, min(self.max_exposure, next_exp))
@@ -200,8 +207,10 @@ class WebcamSensor:
             assert best_metrics is not None
             luma, luma_eff, sat_pct, cct, rgb_mean, final_exp = best_metrics
             self.last_exposure = final_exp
-            ev_index = luma_eff / (final_exp / 100.0)
-            ev_log = math.log2(max(ev_index, 1e-3))
+            y_span = max(235.0 - self.black_level, 1.0)
+            luma_lin = max(1e-4, min(1.0, luma_eff / y_span)) ** self.gamma
+            ev_index = luma_lin / (final_exp / 100.0)
+            ev_log = math.log2(max(ev_index, 1e-6))
             return SensorReading(
                 luma=luma,
                 luma_effective=luma_eff,

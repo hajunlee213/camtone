@@ -18,13 +18,15 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "max_exposure": 10000,
         "initial_exposure": 350,
         "black_level": 16.0,
+        "gamma": 2.2,
         "target_luma_min": 65.0,
         "target_luma_max": 155.0,
         "roi_mode": "full",
     },
     "controller": {
-        "ev_log_min": -1.0,
-        "ev_log_max": 5.5,
+        # TODO(calibration): estimated values after ADD-01 gamma correction; tune with --dry-run
+        "ev_log_min": -10.0,
+        "ev_log_max": -3.5,
         "brightness_min_pct": 15,
         "brightness_max_pct": 95,
         "ambient_cct_min": 2800.0,
