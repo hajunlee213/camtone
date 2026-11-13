@@ -60,6 +60,7 @@ class AdaptiveController:
         ema_alpha: float = 0.35,
         brightness_deadband_pct: int = 2,
         cct_deadband_k: int = 80,
+        brightness_offset_pct: int = 0,
     ):
         self.ev_log_min = ev_log_min
         self.ev_log_max = ev_log_max
@@ -74,13 +75,26 @@ class AdaptiveController:
         self.ema_alpha = ema_alpha
         self.brightness_deadband_pct = brightness_deadband_pct
         self.cct_deadband_k = cct_deadband_k
+        self.brightness_offset_pct: int = int(brightness_offset_pct)
 
         self._ema_ev_log: Optional[float] = None
         self._ema_cct: Optional[float] = None
         self._last_applied_brightness: Optional[int] = None
         self._last_applied_cct: Optional[int] = None
 
-    def update(self, reading: SensorReading) -> ControlTarget:
+    def update(self, reading: SensorReading, actual_brightness_pct: Optional[int] = None) -> ControlTarget:
+        if (
+            actual_brightness_pct is not None
+            and actual_brightness_pct >= 0
+            and self._last_applied_brightness is not None
+        ):
+            manual_diff = actual_brightness_pct - self._last_applied_brightness
+            if abs(manual_diff) >= self.brightness_deadband_pct:
+                self.brightness_offset_pct = int(
+                    _clamp(self.brightness_offset_pct + manual_diff, -100, 100)
+                )
+                self._last_applied_brightness = actual_brightness_pct
+
         calibrated_cct = _calibrate_cct(reading.cct, self.cct_calibration)
         if self._ema_ev_log is None:
             self._ema_ev_log = reading.ev_log
@@ -90,12 +104,15 @@ class AdaptiveController:
             self._ema_ev_log = a * reading.ev_log + (1.0 - a) * self._ema_ev_log
             self._ema_cct = a * calibrated_cct + (1.0 - a) * self._ema_cct
 
-        raw_brightness = _lerp_map(
-            self._ema_ev_log,
-            self.ev_log_min,
-            self.ev_log_max,
-            float(self.brightness_min_pct),
-            float(self.brightness_max_pct),
+        raw_brightness = (
+            _lerp_map(
+                self._ema_ev_log,
+                self.ev_log_min,
+                self.ev_log_max,
+                float(self.brightness_min_pct),
+                float(self.brightness_max_pct),
+            )
+            + self.brightness_offset_pct
         )
         target_brightness = int(round(_clamp(raw_brightness, self.brightness_min_pct, self.brightness_max_pct)))
 

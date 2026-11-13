@@ -46,6 +46,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "ema_alpha": 0.35,
         "brightness_deadband_pct": 2,
         "cct_deadband_k": 80,
+        "brightness_offset_pct": 0,
     },
     "output": {
         "backlight_name": "intel_backlight",
@@ -85,7 +86,12 @@ def run_cycle(
         print(f"[{ts}] SKIP: {sensor.device} is busy (used by another app)")
         return
 
-    target = controller.update(reading)
+    actual_brightness = (
+        output.get_brightness_pct()
+        if (not dry_run and output.enable_brightness)
+        else None
+    )
+    target = controller.update(reading, actual_brightness_pct=actual_brightness)
     actions = []
     if target.apply_brightness and output.enable_brightness:
         output.set_brightness_pct(target.brightness_pct)
