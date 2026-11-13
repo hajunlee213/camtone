@@ -88,6 +88,20 @@ function stateText(state) {
     }
 }
 
+// BrightnessBackend values from the daemon. Unknown or missing values give null (nothing shown).
+function backendText(backend) {
+    switch (backend) {
+    case 'shell':
+        return 'GNOME';
+    case 'logind':
+        return _('직접 제어 (logind)');
+    case 'none':
+        return _('없음');
+    default:
+        return null;
+    }
+}
+
 // Adw/Gtk constructor props: leave subtitle out entirely when there is none.
 const withSubtitle = (props, subtitle) => (subtitle ? {...props, subtitle} : props);
 
@@ -246,6 +260,17 @@ export default class WebcamAlsRgbPreferences extends ExtensionPreferences {
         };
         settings.connect('changed::brightness-offset-pct', updateOffset);
         updateOffset();
+
+        // Under the GNOME shell backend the slider does the fine adjustment, so the learned offset is hidden.
+        const shellGroup = addGroup(brightnessPage, _('밝기 미세 조정'),
+            _('밝기 미세 조정은 GNOME 밝기 슬라이더로 합니다. 슬라이더 가운데(50%)가 보정 없음입니다.'));
+        shellGroup.set_visible(false);
+        // Until the first daemon poll, the offset group stays visible (the logind behaviour).
+        const applyBackend = props => {
+            const isShell = props?.BrightnessBackend === 'shell';
+            learnedGroup.set_visible(!isShell);
+            shellGroup.set_visible(isShell);
+        };
 
         // =============================================================
         // 색온도 (color temperature)
@@ -492,12 +517,17 @@ export default class WebcamAlsRgbPreferences extends ExtensionPreferences {
 
         const updateInfo = async () => {
             const props = await readDaemonProps();
+            applyBackend(props);
             if (!props) {
                 stateRow.set_subtitle(_('실행 중이 아님'));
                 lastRow.set_subtitle('-');
                 return;
             }
-            stateRow.set_subtitle(stateText(props.State));
+            // BrightnessBackend is missing on daemons older than v0.1.8; show nothing extra then.
+            const backend = backendText(props.BrightnessBackend);
+            stateRow.set_subtitle(backend
+                ? `${stateText(props.State)} · ${_('밝기')}: ${backend}`
+                : stateText(props.State));
             const last = Number(props.LastMeasured);
             if (!last) {
                 lastRow.set_subtitle(_('아직 없음'));
