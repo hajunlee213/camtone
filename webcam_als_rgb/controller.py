@@ -83,6 +83,8 @@ class AdaptiveController:
         self.brightness_offset_pct: int = int(brightness_offset_pct)
         # False in shell mode: GNOME's slider is the manual offset, so the learned value is ignored.
         self.offset_enabled: bool = True
+        # Night schedule (v0.1.9): when set, the CCT target is this value; brightness stays adaptive.
+        self.fixed_cct: Optional[int] = None
 
         self._ema_ev_log: Optional[float] = None
         # EMA runs on the raw (uncalibrated) CCT; calibration is applied after smoothing (v0.1.8).
@@ -125,6 +127,8 @@ class AdaptiveController:
         # The display range (display-cct-min/max, schema allows up to 10000K) already bounds the map;
         # this clamp only guards against offsets pushing past what Night Light can sensibly show.
         target_cct = int(round(_clamp(raw_cct, _CCT_FLOOR_K, _CCT_CEIL_K)))
+        if self.fixed_cct is not None:
+            target_cct = int(self.fixed_cct)
         return target_brightness, target_cct
 
     def update(self, reading: SensorReading, actual_brightness_pct: Optional[int] = None) -> ControlTarget:

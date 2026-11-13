@@ -197,7 +197,7 @@ class Service:
         self._lock_active = False
         self._sleeping = False
         self._on_battery = False
-        self._night = False  # inside the fixed night schedule (v0.1.9): camera off, fixed CCT
+        self._night = False  # inside the fixed night schedule (v0.1.9): CCT fixed, brightness still adaptive
         self._night_timer_id: Optional[int] = None
 
         self._state = ""
@@ -229,8 +229,6 @@ class Service:
             return "locked"
         if self._svc["pause_on_battery"] and self._on_battery:
             return "battery"
-        if self._night:
-            return "night"
         return None
 
     def _publish(self, changed: dict[str, Any]) -> None:
@@ -307,25 +305,15 @@ class Service:
         self._interval = self._base_interval()
         self._streak = 0
         self._refresh_state()
-        reason = self._pause_reason()
-        if reason is None:
+        if self._pause_reason() is None:
             self._schedule(delay)
-        elif reason == "night":
-            self._apply_night_cct()
 
     # ----- fixed night schedule (v0.1.9) ---------------------------------
+    # The camera keeps measuring (brightness stays adaptive; this laptop has no light sensor).
+    # Only the color temperature target is replaced by a fixed value.
 
     def _night_window(self) -> tuple[bool, int, int]:
         return bool(self._svc["night_enabled"]), int(self._svc["night_from_min"]), int(self._svc["night_to_min"])
-
-    def _apply_night_cct(self) -> None:
-        if self._dry_run or not self._output.enable_color_temp:
-            return
-        if self._sleeping or self._lock_active:
-            return  # applied again on resume
-        self._output.apply_transition(cct=int(self._svc["night_temp"]))
-        self._publish({"TargetCct": int(self._svc["night_temp"])})
-        self._log(f"NIGHT: fixed {self._svc['night_temp']}K")
 
     def _on_night_timer(self) -> bool:
         self._night_timer_id = None
@@ -344,24 +332,21 @@ class Service:
             self._night_timer_id = GLib.timeout_add_seconds(max(1, int(seconds)), self._on_night_timer)
 
     def _sync_night(self, force_apply: bool = False) -> None:
-        """Recompute whether we are inside the schedule; switch mode and re-arm the boundary timer."""
+        """Recompute whether we are inside the schedule; switch the CCT mode and re-arm the boundary timer."""
         enabled, f, t = self._night_window()
         cur = local_seconds_of_day()
         night = in_night_schedule(enabled, f, t, cur // 60)
         self._arm_night_timer(seconds_until_boundary(enabled, f, t, cur))
-        if night == self._night:
-            if night and force_apply:
-                self._apply_night_cct()
+        fixed = int(self._svc["night_temp"]) if night else None
+        if night == self._night and not (night and force_apply and fixed != self._controller.fixed_cct):
             return
+        if night != self._night:
+            self._log(f"NIGHT: schedule {'started; CCT fixed at ' + str(fixed) + 'K' if night else 'ended; CCT adaptive again'}")
         self._night = night
-        if night:
-            self._log("NIGHT: schedule started; camera measurement paused")
-            self._pause()
-            self._apply_night_cct()
-        else:
-            self._log("NIGHT: schedule ended; resuming adaptive control")
-            self._controller.invalidate_applied()
-            self._resume(RESUME_DELAY_SEC)
+        self._controller.fixed_cct = fixed
+        self._controller.invalidate_applied()
+        if self._pause_reason() is None:
+            self._do_recompute("night")
 
     def _measure(self) -> None:
         if self._pause_reason() is not None:

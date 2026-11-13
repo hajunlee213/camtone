@@ -115,7 +115,7 @@
     <key name="night-schedule-enabled" type="b">
       <default>false</default>
       <summary>Fixed night schedule</summary>
-      <description>During the schedule the camera is not used; a fixed color temperature is applied.</description>
+      <description>During the schedule the color temperature is fixed; brightness stays adaptive.</description>
     </key>
     <key name="night-schedule-temp" type="i">
       <default>3700</default>
