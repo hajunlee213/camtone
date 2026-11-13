@@ -263,7 +263,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.once:
             try:
                 run_cycle(sensor, controller, output, args.dry_run)
-            except (subprocess.CalledProcessError, RuntimeError, OSError) as exc:
+            except (subprocess.CalledProcessError, RuntimeError, OSError, ValueError) as exc:
                 ts = time.strftime("%H:%M:%S")
                 print(f"[{ts}] ERROR: cycle failed ({type(exc).__name__}: {exc})")
                 return 1
@@ -274,7 +274,7 @@ def main(argv: list[str] | None = None) -> int:
             while True:
                 try:
                     run_cycle(sensor, controller, output, args.dry_run)
-                except (subprocess.CalledProcessError, RuntimeError, OSError) as exc:
+                except (subprocess.CalledProcessError, RuntimeError, OSError, ValueError) as exc:
                     ts = time.strftime("%H:%M:%S")
                     print(f"[{ts}] WARN: cycle failed ({type(exc).__name__}: {exc})")
                 time.sleep(interval)
