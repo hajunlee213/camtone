@@ -241,17 +241,25 @@ class WebcamSensor:
         height: int = 240,
         wb_ref_temp: int = 4600,
         min_exposure: int = 50,
-        max_exposure: int = 10000,
+        # 2026-11-13 실측: 유효 노출 상한 약 4800에 여유를 둔 값 (v0.1.2 계획서 2절)
+        max_exposure: int = 4000,
         initial_exposure: int = 350,
         black_level: float = 16.0,
-        gamma: float = 2.2,
+        # 2026-11-13 실측: luma<=80에서 노출에 정비례, v0.1.2 계획서 2절
+        gamma: float = 1.0,
         yuv_range: str = "limited",
-        target_luma_min: float = 65.0,
-        target_luma_max: float = 155.0,
+        target_luma_min: float = 50.0,
+        target_luma_max: float = 80.0,
+        target_luma_setpoint: float = 65.0,
         roi_mode: str = "full",
     ):
         if yuv_range not in ("limited", "full"):
             raise ValueError(f"yuv_range must be 'limited' or 'full', got {yuv_range!r}")
+        if not (target_luma_min <= target_luma_setpoint <= target_luma_max):
+            raise ValueError(
+                f"target_luma_setpoint ({target_luma_setpoint}) must satisfy "
+                f"target_luma_min ({target_luma_min}) <= setpoint <= target_luma_max ({target_luma_max})"
+            )
         self.device = device
         self.width = width
         self.height = height
@@ -260,12 +268,22 @@ class WebcamSensor:
         self.max_exposure = max_exposure
         self.last_exposure = max(min_exposure, min(max_exposure, initial_exposure))
         self.black_level = black_level
-        # TODO(calibration): verify effective camera gamma (2.2 sRGB assumption vs V4L2 gamma control)
         self.gamma = gamma
         self.yuv_range = yuv_range
         self.target_luma_min = target_luma_min
         self.target_luma_max = target_luma_max
+        self.target_luma_setpoint = target_luma_setpoint
         self.roi_mode = roi_mode
+
+    def _candidate_score(self, luma: float, sat_pct: float) -> tuple[int, float, int, float]:
+        """Lower score is closer to the linear target range [target_luma_min, target_luma_max]."""
+        dist_to_range = max(0.0, self.target_luma_min - luma, luma - self.target_luma_max)
+        return (
+            1 if sat_pct > 2.0 else 0,
+            dist_to_range,
+            1 if luma > self.target_luma_max else 0,
+            abs(luma - self.target_luma_setpoint),
+        )
 
     def sample(self) -> Optional[SensorReading]:
         """Capture frames using manual AE/AWB with auto-ranging exposure.
@@ -286,6 +304,7 @@ class WebcamSensor:
             fmt_arg = f"--set-fmt-video=width={self.width},height={self.height},pixelformat=YUYV"
 
             best_metrics = None
+            best_score = None
             for step_idx in range(3):
                 if step_idx == 0:
                     extra_args: tuple[str, ...] = (
@@ -311,21 +330,25 @@ class WebcamSensor:
                 luma, luma_eff, sat_pct, cct, rgb_mean = _analyze_frames(
                     usable, self.black_level, self.roi_mode, self.yuv_range
                 )
-                best_metrics = (luma, luma_eff, sat_pct, cct, rgb_mean, exp)
+                score = self._candidate_score(luma, sat_pct)
+                if best_score is None or score < best_score:
+                    best_score = score
+                    best_metrics = (luma, luma_eff, sat_pct, cct, rgb_mean, exp)
 
                 in_range = self.target_luma_min <= luma <= self.target_luma_max and sat_pct <= 2.0
                 at_low_limit = exp <= self.min_exposure and (luma > self.target_luma_max or sat_pct > 2.0)
                 at_high_limit = exp >= self.max_exposure and luma < self.target_luma_min
                 if in_range or at_low_limit or at_high_limit:
+                    best_metrics = (luma, luma_eff, sat_pct, cct, rgb_mean, exp)
                     break
 
-                # Proportional exposure step toward target luma (~105) in linear light space
+                # Proportional exposure step toward target_luma_setpoint in linear light space
                 eff_black = 0.0 if self.yuv_range == "full" else self.black_level
                 y_max = 255.0 if self.yuv_range == "full" else 235.0
                 y_span = max(y_max - eff_black, 1.0)
                 cur_norm = max(1e-4, min(1.0, luma_eff / y_span))
                 cur_lin = cur_norm ** self.gamma
-                target_norm = max(1e-4, min(1.0, (105.0 - eff_black) / y_span))
+                target_norm = max(1e-4, min(1.0, (self.target_luma_setpoint - eff_black) / y_span))
                 target_lin = target_norm ** self.gamma
                 ratio = target_lin / max(cur_lin, 1e-6)
                 ratio = max(0.25, min(4.0, ratio))

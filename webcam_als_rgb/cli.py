@@ -17,19 +17,22 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "height": 240,
         "wb_ref_temp": 4600,
         "min_exposure": 50,
-        "max_exposure": 10000,
+        # 2026-11-13 실측: 유효 노출 상한 약 4800에 여유를 둔 값 (v0.1.2 계획서 2절)
+        "max_exposure": 4000,
         "initial_exposure": 350,
         "black_level": 16.0,
-        "gamma": 2.2,
+        # 2026-11-13 실측: luma<=80에서 노출에 정비례, v0.1.2 계획서 2절
+        "gamma": 1.0,
         "yuv_range": "limited",
-        "target_luma_min": 65.0,
-        "target_luma_max": 155.0,
+        "target_luma_min": 50.0,
+        "target_luma_max": 80.0,
+        "target_luma_setpoint": 65.0,
         "roi_mode": "full",
     },
     "controller": {
-        # TODO(calibration): estimated values after ADD-01 gamma correction; tune with --dry-run
-        "ev_log_min": -10.0,
-        "ev_log_max": -3.5,
+        # TODO(calibration): estimated values for gamma=1.0; tune with --dry-run
+        "ev_log_min": -8.8,
+        "ev_log_max": -2.3,
         "brightness_min_pct": 15,
         "brightness_max_pct": 95,
         "ambient_cct_min": 2800.0,
