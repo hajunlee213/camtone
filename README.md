@@ -77,7 +77,7 @@ python3 run.py --config config.json
 | :--- | :--- | :--- | :--- |
 | `sensor` | `roi_mode` | `"full"` | `"full"`(전체 프레임) 또는 `"border"`(상단/좌우 테두리 위주 — 화면 반사광·얼굴 영향 감소) |
 | `sensor` | `wb_ref_temp` | `4600` | 수동 화이트밸런스 기준 온도(K). 사용 중인 웹캠에 맞춰 `4600`~`5500` 사이로 조정 가능 |
-| `sensor` | `max_exposure` | `4000` | 자동 노출 조절 상한(LG Camera 실측 유효 상한 약 4800에 여유를 둔 값) |
+| `sensor` | `max_exposure` | `8000` | 자동 노출 조절 상한(노출 10000까지 luma가 증가하나 캡처 시간·LED 점등과의 균형을 위해 8000으로 설정) |
 | `sensor` | `gamma` | `1.0` | Y 휘도 선형화 감마 지수(기본 `1.0`은 LG Camera 실측 결과; 다른 카메라는 `--sweep`으로 확인) |
 | `sensor` | `yuv_range` | `"limited"` | `"limited"`(`Y: 16~235`) 또는 `"full"`(`Y: 0~255`). 사용 중인 웹캠 출력 범위에 맞게 선택 |
 | `sensor` | `target_luma_min` / `max` | `50.0` / `80.0` | 노출 자동 조절 목표 luma 구간(선형 구간 기준) |
@@ -99,7 +99,7 @@ python3 run.py --config config.json
 * `--interval <sec>`: 측정 주기(초) 재정의
 * `--no-brightness` / `--no-color`: 밝기 또는 색온도 제어 비활성화
 * `--sweep`: 고정 노출 스윕 진단 실행(항상 화면 설정 및 Night Light 상태를 변경하지 않음)
-* `--sweep-exposures <list>`: `--sweep`에 사용할 쉼표 구분 노출 목록(기본 `200,400,800,1200,1600,2400,3200,4800,6400`)
+* `--sweep-exposures <list>`: `--sweep`에 사용할 쉼표 구분 노출 목록(기본 `200,400,800,1200,1600,2400,3200,4800,6400,8000`)
 * `--sweep-order {asc,desc}`: `--sweep` 노출 측정 순서(기본 `asc`)
 * `--restore-night-light`: 상태 파일(`$XDG_STATE_HOME/webcam-as-als-rgb/night-light.json`)에 보존된 원래 Night Light 설정만 복구하고 종료
 

@@ -266,8 +266,8 @@ class WebcamSensor:
         height: int = 240,
         wb_ref_temp: int = 4600,
         min_exposure: int = 50,
-        # 2026-11-13 실측: 유효 노출 상한 약 4800에 여유를 둔 값 (v0.1.2 계획서 2절)
-        max_exposure: int = 4000,
+        # 2026-11-13 재실측: 노출 10000까지 luma가 계속 증가하나 캡처 시간(LED 점등)과의 균형을 위해 8000으로 설정 (v0.1.3 계획서 2절)
+        max_exposure: int = 8000,
         initial_exposure: int = 350,
         black_level: float = 16.0,
         # 2026-11-13 실측: luma<=80에서 노출에 정비례, v0.1.2 계획서 2절

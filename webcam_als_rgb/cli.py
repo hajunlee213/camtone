@@ -17,8 +17,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "height": 240,
         "wb_ref_temp": 4600,
         "min_exposure": 50,
-        # 2026-11-13 실측: 유효 노출 상한 약 4800에 여유를 둔 값 (v0.1.2 계획서 2절)
-        "max_exposure": 4000,
+        # 2026-11-13 재실측: 노출 10000까지 luma가 계속 증가하나 캡처 시간(LED 점등)과의 균형을 위해 8000으로 설정 (v0.1.3 계획서 2절)
+        "max_exposure": 8000,
         "initial_exposure": 350,
         "black_level": 16.0,
         # 2026-11-13 실측: luma<=80에서 노출에 정비례, v0.1.2 계획서 2절
@@ -253,7 +253,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--sweep", action="store_true", help="Run fixed-exposure diagnostic sweep (never modifies display)")
     parser.add_argument(
         "--sweep-exposures",
-        default="200,400,800,1200,1600,2400,3200,4800,6400",
+        default="200,400,800,1200,1600,2400,3200,4800,6400,8000",
         help="Comma-separated exposure list for --sweep",
     )
     parser.add_argument(
