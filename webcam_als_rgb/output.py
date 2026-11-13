@@ -6,11 +6,20 @@ import subprocess
 import tempfile
 from typing import Optional
 
-from gi.repository import GLib
+from gi.repository import Gio, GLib
 
 _BACKLIGHT_ROOT = Path("/sys/class/backlight")
 _TYPE_PRIORITY = {"raw": 0, "platform": 1, "firmware": 2}
 _COLOR_SCHEMA = "org.gnome.settings-daemon.plugins.color"
+# GNOME Shell's own brightness manager (GNOME 49+). See docs/v0.1.8-plan.md §1.
+_SHELL_BUS = "org.gnome.Shell.Brightness"
+_SHELL_PATH = "/org/gnome/Shell/Brightness"
+_SHELL_IFACE = "org.gnome.Shell.Brightness"
+_DBUS_TIMEOUT_MS = 2000
+
+BACKEND_SHELL = "shell"
+BACKEND_LOGIND = "logind"
+BACKEND_NONE = "none"
 _NIGHT_LIGHT_KEYS = (
     "night-light-enabled",
     "night-light-schedule-automatic",
@@ -24,6 +33,58 @@ def _default_night_light_state_path() -> Path:
     xdg_state = os.environ.get("XDG_STATE_HOME", "").strip()
     base = Path(xdg_state) if xdg_state else (Path.home() / ".local" / "state")
     return base / "webcam-as-als-rgb" / "night-light.json"
+
+
+def _detect_shell_brightness() -> bool:
+    """True when org.gnome.Shell.Brightness is owned on the session bus and has brightness control.
+
+    Read-only: only NameHasOwner and the HasBrightnessControl property are queried.
+    """
+    try:
+        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        owned = bus.call_sync(
+            "org.freedesktop.DBus",
+            "/org/freedesktop/DBus",
+            "org.freedesktop.DBus",
+            "NameHasOwner",
+            GLib.Variant("(s)", (_SHELL_BUS,)),
+            GLib.VariantType("(b)"),
+            Gio.DBusCallFlags.NONE,
+            _DBUS_TIMEOUT_MS,
+            None,
+        ).unpack()[0]
+        if not owned:
+            return False
+        has_control = bus.call_sync(
+            _SHELL_BUS,
+            _SHELL_PATH,
+            "org.freedesktop.DBus.Properties",
+            "Get",
+            GLib.Variant("(ss)", (_SHELL_IFACE, "HasBrightnessControl")),
+            GLib.VariantType("(v)"),
+            Gio.DBusCallFlags.NONE,
+            _DBUS_TIMEOUT_MS,
+            None,
+        ).unpack()[0]
+        return bool(has_control)
+    except GLib.Error:
+        return False
+
+
+def _shell_set_target(fraction: float) -> None:
+    """Call SetAutoBrightnessTarget(fraction). -1.0 turns GNOME's auto brightness off."""
+    bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+    bus.call_sync(
+        _SHELL_BUS,
+        _SHELL_PATH,
+        _SHELL_IFACE,
+        "SetAutoBrightnessTarget",
+        GLib.Variant("(d)", (float(fraction),)),
+        None,
+        Gio.DBusCallFlags.NONE,
+        _DBUS_TIMEOUT_MS,
+        None,
+    )
 
 
 def _discover_backlight(preferred_name: str) -> tuple[str, Path, bool]:
@@ -80,6 +141,37 @@ class GnomeWaylandOutput:
         self._saved_night_light: dict[str, str] = {}
         self._night_light_paused_warned = False
         self._transition: Optional["_Transition"] = None
+        # Brightness backend: "shell" (GNOME target), "logind" (raw backlight), or "none".
+        self._backend: Optional[str] = None
+        # Last brightness percent sent to the shell backend (its transition start point).
+        self._last_sent_brightness: Optional[int] = None
+        self._backend = self._resolve_backend()
+
+    def _resolve_backend(self) -> str:
+        if _detect_shell_brightness():
+            backend = BACKEND_SHELL
+        elif self._backlight_available:
+            backend = BACKEND_LOGIND
+        else:
+            backend = BACKEND_NONE
+        self._set_backend(backend)
+        return backend
+
+    def _set_backend(self, backend: str) -> None:
+        if backend != self._backend:
+            print(f"BRIGHTNESS: backend={backend}")
+            self._backend = backend
+
+    @property
+    def brightness_backend(self) -> str:
+        """Current brightness backend ("shell", "logind" or "none"). Exposed over D-Bus."""
+        return self._backend or BACKEND_NONE
+
+    def _ensure_backend(self) -> str:
+        # Re-judged when unknown (after a failed shell call) or "none" (backlight may appear later).
+        if self._backend in (None, BACKEND_NONE):
+            return self._resolve_backend()
+        return self._backend
 
     def _read_max_brightness(self) -> int:
         max_file = self.backlight_dir / "max_brightness"
@@ -95,7 +187,20 @@ class GnomeWaylandOutput:
         return int(round((cur / self._max_brightness) * 100.0))
 
     def set_brightness_pct(self, pct: int) -> None:
-        if not self.enable_brightness or self.dry_run or not self._backlight_available:
+        if not self.enable_brightness or self.dry_run:
+            return
+        backend = self._ensure_backend()
+        if backend == BACKEND_SHELL:
+            target = max(0, min(100, int(pct)))
+            try:
+                _shell_set_target(target / 100.0)
+            except GLib.Error as exc:
+                # Shell may have restarted: re-judge the backend before the next call.
+                self._backend = None
+                raise OSError(f"SetAutoBrightnessTarget failed: {exc.message}") from exc
+            self._last_sent_brightness = target
+            return
+        if backend != BACKEND_LOGIND:
             return
         raw_val = max(1, min(self._max_brightness, int(round((pct / 100.0) * self._max_brightness))))
         subprocess.run(
@@ -268,10 +373,11 @@ class GnomeWaylandOutput:
         self.cancel_transition()
         if self.dry_run:
             return
+        backend = self._ensure_backend()
         do_b = (
             brightness_pct is not None
             and self.enable_brightness
-            and self._backlight_available
+            and backend in (BACKEND_SHELL, BACKEND_LOGIND)
         )
         do_c = cct is not None and self.enable_color_temp
         if not do_b and not do_c:
@@ -279,8 +385,12 @@ class GnomeWaylandOutput:
 
         start_b: Optional[int] = None
         if do_b and brightness_pct is not None:
-            cur_b = self.get_brightness_pct()
-            start_b = cur_b if cur_b >= 0 else brightness_pct
+            if backend == BACKEND_SHELL:
+                # sysfs includes GNOME's slider bias here, so start from the last value we sent.
+                start_b = self._last_sent_brightness if self._last_sent_brightness is not None else brightness_pct
+            else:
+                cur_b = self.get_brightness_pct()
+                start_b = cur_b if cur_b >= 0 else brightness_pct
 
         start_c: Optional[int] = None
         if do_c and cct is not None:
@@ -330,6 +440,24 @@ class GnomeWaylandOutput:
                     self.set_color_temperature(t.end_c)
             except (subprocess.CalledProcessError, OSError, ValueError) as exc:
                 print(f"WARN: failed to complete interrupted transition ({type(exc).__name__}: {exc})")
+
+    def release_brightness_control(self) -> None:
+        """Hand brightness back to GNOME (shell backend only): SetAutoBrightnessTarget(-1.0).
+
+        Cancels any pending brightness fade first so no later step re-takes control.
+        Not called on lock or sleep; GNOME dims the screen itself there.
+        """
+        self.cancel_transition()
+        self._last_sent_brightness = None
+        if self.dry_run or self._backend != BACKEND_SHELL:
+            return
+        try:
+            _shell_set_target(-1.0)
+        except GLib.Error as exc:
+            print(f"WARN: failed to release GNOME brightness control ({exc.message})")
+            self._backend = None
+            return
+        print("BRIGHTNESS: released GNOME brightness control")
 
     def wait_transition(self) -> None:
         """Block by iterating the default GLib context until the transition ends (used by --once)."""
