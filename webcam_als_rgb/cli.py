@@ -1,6 +1,4 @@
 import argparse
-import json
-from pathlib import Path
 import signal
 import subprocess
 import time
@@ -9,71 +7,7 @@ from typing import Any
 from .controller import AdaptiveController
 from .output import GnomeWaylandOutput
 from .sensor import SensorReading, WebcamSensor, get_exposure_range
-
-DEFAULT_CONFIG: dict[str, Any] = {
-    "sensor": {
-        "device": "/dev/video0",
-        "width": 320,
-        "height": 240,
-        "wb_ref_temp": 4600,
-        "min_exposure": 50,
-        # 2026-11-13 재실측: 노출 10000까지 luma가 계속 증가하나 캡처 시간(LED 점등)과의 균형을 위해 8000으로 설정 (v0.1.3 계획서 2절)
-        "max_exposure": 8000,
-        "initial_exposure": 350,
-        "black_level": 16.0,
-        # 2026-11-13 실측: luma<=80에서 노출에 정비례, v0.1.2 계획서 2절
-        "gamma": 1.0,
-        "yuv_range": "limited",
-        "target_luma_min": 50.0,
-        "target_luma_max": 80.0,
-        "target_luma_setpoint": 65.0,
-        "roi_mode": "full",
-        "exposure_blacklist": [1250, 2500],
-    },
-    "controller": {
-        # TODO(calibration): estimated values for gamma=1.0; tune with --dry-run
-        "ev_log_min": -8.8,
-        "ev_log_max": -2.3,
-        "brightness_min_pct": 15,
-        "brightness_max_pct": 95,
-        "ambient_cct_min": 2800.0,
-        "ambient_cct_max": 6500.0,
-        "display_cct_min": 3400,
-        "display_cct_max": 6200,
-        "cct_offset": 0,
-        # TODO(calibration): populate [measured_cct, actual_cct] pairs from known light sources
-        "cct_calibration": [],
-        "ema_alpha": 0.35,
-        "brightness_deadband_pct": 2,
-        "cct_deadband_k": 80,
-        "brightness_offset_pct": 0,
-    },
-    "output": {
-        "backlight_name": "intel_backlight",
-        "enable_brightness": True,
-        "enable_color_temp": True,
-        "transition_steps": 4,
-        "transition_interval_sec": 0.3,
-    },
-    "interval_sec": 15.0,
-}
-
-
-def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
-    merged = dict(base)
-    for k, v in override.items():
-        if isinstance(v, dict) and isinstance(merged.get(k), dict):
-            merged[k] = _deep_merge(merged[k], v)
-        else:
-            merged[k] = v
-    return merged
-
-
-def load_config(path: str | None) -> dict[str, Any]:
-    if not path:
-        return DEFAULT_CONFIG
-    data = json.loads(Path(path).read_text(encoding="utf-8"))
-    return _deep_merge(DEFAULT_CONFIG, data)
+from .settings import load_cfg, open_settings
 
 
 def run_cycle(
@@ -296,7 +230,7 @@ def main(argv: list[str] | None = None) -> int:
 
     signal.signal(signal.SIGTERM, _handle_sigterm)
 
-    cfg = load_config(args.config)
+    cfg = load_cfg(open_settings(), args.config)
     out_cfg = dict(cfg["output"])
     if args.no_brightness:
         out_cfg["enable_brightness"] = False
@@ -316,7 +250,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         return 1
 
-    interval = args.interval if args.interval is not None else float(cfg["interval_sec"])
+    interval = args.interval if args.interval is not None else float(cfg["service"]["interval_ac_sec"])
 
     sensor = WebcamSensor(**cfg["sensor"])
     if args.sweep:
