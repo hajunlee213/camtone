@@ -277,10 +277,18 @@ class WebcamSensor:
                 else:
                     extra_args = (f"--set-ctrl=exposure_time_absolute={exp}",)
 
-                frames = _capture_yuyv(self.device, self.width, self.height, count=6, extra_args=extra_args)
+                frame_count = 3 if exp >= 1000 else 5
+                frames = _capture_yuyv(
+                    self.device,
+                    self.width,
+                    self.height,
+                    count=frame_count,
+                    extra_args=extra_args,
+                )
                 if step_idx == 0:
                     _validate_yuyv_format(self.device, self.width, self.height)
-                usable = frames[2:] if len(frames) > 2 else frames
+                warmup = 1 if len(frames) <= 3 else 2
+                usable = frames[warmup:] if len(frames) > warmup else frames
 
                 analyzed = [_analyze_frame(f, self.black_level, self.roi_mode) for f in usable]
                 luma = float(np.mean([a[0] for a in analyzed]))
