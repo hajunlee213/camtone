@@ -440,6 +440,12 @@ class WebcamSensor:
                                 metrics = self._capture_at_exposure(exp, saved_ctrls, is_first_step=False)
                                 luma, _luma_eff, luma_lin_mean, _luma_lin_g1, sat_pct, _cct, _rgb = metrics
                                 cur_lin = max(1e-4, min(1.0, luma_lin_mean))
+                        elif cur_lin > expected_lin * 1.65:
+                            # Previous step was an unknown dark glitch; blacklist it and discard if it was best_exp
+                            runtime_blacklist.add(prev_exp)
+                            if best_exp == prev_exp:
+                                best_metrics = None
+                                best_score = None
 
                 prev_normal = (exp, cur_lin, sat_pct)
                 score = self._candidate_score(luma, sat_pct)
