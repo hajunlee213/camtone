@@ -91,17 +91,20 @@ python3 run.py --config config.json
 [Unit]
 Description=Webcam as ALS and RGB Sensor
 After=graphical-session.target
+PartOf=graphical-session.target
 
 [Service]
 Type=simple
 WorkingDirectory=/home/hajun/Project/webcam-as-als-rgb
 # 가상환경(venv/conda 등)을 사용하는 경우 해당 환경의 python3 절대 경로로 수정하세요.
 ExecStart=/usr/bin/python3 /home/hajun/Project/webcam-as-als-rgb/run.py --config /home/hajun/Project/webcam-as-als-rgb/config.json
+KillSignal=SIGTERM
+TimeoutStopSec=10
 Restart=on-failure
 RestartSec=5
 
 [Install]
-WantedBy=default.target
+WantedBy=graphical-session.target
 ```
 
 활성화 및 상태 확인:
