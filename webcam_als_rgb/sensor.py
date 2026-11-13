@@ -460,7 +460,12 @@ class WebcamSensor:
                 target_norm = max(1e-4, min(1.0, (self.target_luma_setpoint - eff_black) / y_span))
                 target_lin = target_norm ** self.gamma
                 ratio = target_lin / max(cur_lin, 1e-6)
-                ratio = max(0.25, min(4.0, ratio))
+                if luma > self.target_luma_max and ratio < 1.0:
+                    # Knee region (luma > target_luma_max) compresses luma; over-correct to converge within 2-3 steps
+                    ratio = ratio ** 1.5
+                    ratio = max(0.15, min(4.0, ratio))
+                else:
+                    ratio = max(0.25, min(4.0, ratio))
                 next_exp = int(round(exp * ratio))
                 next_exp = self._avoid_blacklisted_exposure(next_exp, runtime_blacklist)
                 if next_exp == exp:
