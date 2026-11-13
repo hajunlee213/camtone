@@ -262,17 +262,24 @@ class WebcamSensor:
         exp = self.last_exposure
 
         try:
-            _v4l2(self.device, f"--set-fmt-video=width={self.width},height={self.height},pixelformat=YUYV")
-            _validate_yuyv_format(self.device, self.width, self.height)
             ctrl_str = f"auto_exposure=1,white_balance_automatic=0,white_balance_temperature={self.wb_ref_temp}"
             if "exposure_dynamic_framerate" in saved_ctrls:
                 ctrl_str += ",exposure_dynamic_framerate=1"
-            _v4l2(self.device, f"--set-ctrl={ctrl_str}")
+            fmt_arg = f"--set-fmt-video=width={self.width},height={self.height},pixelformat=YUYV"
 
             best_metrics = None
-            for _ in range(3):
-                _v4l2(self.device, f"--set-ctrl=exposure_time_absolute={exp}")
-                frames = _capture_yuyv(self.device, self.width, self.height, count=6)
+            for step_idx in range(3):
+                if step_idx == 0:
+                    extra_args: tuple[str, ...] = (
+                        fmt_arg,
+                        f"--set-ctrl={ctrl_str},exposure_time_absolute={exp}",
+                    )
+                else:
+                    extra_args = (f"--set-ctrl=exposure_time_absolute={exp}",)
+
+                frames = _capture_yuyv(self.device, self.width, self.height, count=6, extra_args=extra_args)
+                if step_idx == 0:
+                    _validate_yuyv_format(self.device, self.width, self.height)
                 usable = frames[2:] if len(frames) > 2 else frames
 
                 analyzed = [_analyze_frame(f, self.black_level, self.roi_mode) for f in usable]
