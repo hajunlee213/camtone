@@ -79,6 +79,8 @@ function stateText(state) {
         return _('절전 중');
     case 'paused-battery':
         return _('배터리 절약');
+    case 'paused-night':
+        return _('야간 고정');
     case 'camera-busy':
         return _('카메라 사용 중');
     case 'starting':
@@ -320,6 +322,15 @@ export default class WebcamAlsRgbPreferences extends ExtensionPreferences {
         const powerGroup = addGroup(measurePage, _('전원'));
         powerGroup.add(switchRow('pause-on-battery', _('배터리에서 측정 일시정지'),
             _('켜면 배터리 사용 중에는 카메라를 켜지 않습니다')));
+
+        const nightGroup = addGroup(measurePage, _('야간 고정 스케줄'),
+            _('지정한 시간대에는 카메라를 켜지 않고 색온도를 고정합니다. 밝기는 GNOME이 관리합니다.'));
+        nightGroup.add(switchRow('night-schedule-enabled', _('야간 스케줄 사용')));
+        nightGroup.add(spinRow('night-schedule-temp', {title: _('고정 색온도 (K)'), step: 100, page: 500}));
+        nightGroup.add(spinRow('night-schedule-from-hour', {title: _('시작 시')}));
+        nightGroup.add(spinRow('night-schedule-from-minute', {title: _('시작 분'), step: 5, page: 15}));
+        nightGroup.add(spinRow('night-schedule-to-hour', {title: _('종료 시')}));
+        nightGroup.add(spinRow('night-schedule-to-minute', {title: _('종료 분'), step: 5, page: 15}));
 
         const smoothGroup = addGroup(measurePage, _('측정 안정화'));
         smoothGroup.add(spinRow('ema-alpha', {

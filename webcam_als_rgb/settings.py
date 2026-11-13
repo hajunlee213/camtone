@@ -98,6 +98,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "interval_battery_sec": 120.0,
         "interval_max_sec": 300.0,
         "pause_on_battery": False,
+        "night_enabled": False,
+        "night_temp": 3700,
+        "night_from_min": 22 * 60,
+        "night_to_min": 7 * 60,
     },
 }
 
@@ -140,6 +144,10 @@ def read_gsettings(settings: Gio.Settings) -> dict[str, Any]:
             "interval_battery_sec": float(g.get_int("interval-battery-sec")),
             "interval_max_sec": float(g.get_int("interval-max-sec")),
             "pause_on_battery": g.get_boolean("pause-on-battery"),
+            "night_enabled": g.get_boolean("night-schedule-enabled"),
+            "night_temp": g.get_int("night-schedule-temp"),
+            "night_from_min": g.get_int("night-schedule-from-hour") * 60 + g.get_int("night-schedule-from-minute"),
+            "night_to_min": g.get_int("night-schedule-to-hour") * 60 + g.get_int("night-schedule-to-minute"),
         },
     }
 

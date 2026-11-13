@@ -24,6 +24,7 @@ from gi.repository import Gio, GLib
 from . import __version__
 from .controller import AdaptiveController, ControlTarget
 from .output import GnomeWaylandOutput
+from .schedule import in_night_schedule, local_seconds_of_day, seconds_until_boundary
 from .sensor import SensorReading, WebcamSensor
 from .settings import (
     INTERVAL_KEYS,
@@ -196,6 +197,8 @@ class Service:
         self._lock_active = False
         self._sleeping = False
         self._on_battery = False
+        self._night = False  # inside the fixed night schedule (v0.1.9): camera off, fixed CCT
+        self._night_timer_id: Optional[int] = None
 
         self._state = ""
         # Debounced recompute after mapping-key changes (v0.1.8). Keys collected in the window.
@@ -226,6 +229,8 @@ class Service:
             return "locked"
         if self._svc["pause_on_battery"] and self._on_battery:
             return "battery"
+        if self._night:
+            return "night"
         return None
 
     def _publish(self, changed: dict[str, Any]) -> None:
@@ -298,11 +303,65 @@ class Service:
         self._refresh_state()
 
     def _resume(self, delay: float) -> None:
+        self._sync_night()  # a suspend may have crossed a schedule boundary
         self._interval = self._base_interval()
         self._streak = 0
         self._refresh_state()
-        if self._pause_reason() is None:
+        reason = self._pause_reason()
+        if reason is None:
             self._schedule(delay)
+        elif reason == "night":
+            self._apply_night_cct()
+
+    # ----- fixed night schedule (v0.1.9) ---------------------------------
+
+    def _night_window(self) -> tuple[bool, int, int]:
+        return bool(self._svc["night_enabled"]), int(self._svc["night_from_min"]), int(self._svc["night_to_min"])
+
+    def _apply_night_cct(self) -> None:
+        if self._dry_run or not self._output.enable_color_temp:
+            return
+        if self._sleeping or self._lock_active:
+            return  # applied again on resume
+        self._output.apply_transition(cct=int(self._svc["night_temp"]))
+        self._publish({"TargetCct": int(self._svc["night_temp"])})
+        self._log(f"NIGHT: fixed {self._svc['night_temp']}K")
+
+    def _on_night_timer(self) -> bool:
+        self._night_timer_id = None
+        try:
+            self._sync_night()
+        except Exception as exc:
+            self._log(f"ERROR: night schedule failed ({type(exc).__name__}: {exc})")
+            self._arm_night_timer(60)
+        return False
+
+    def _arm_night_timer(self, seconds: Optional[int]) -> None:
+        if self._night_timer_id is not None:
+            GLib.source_remove(self._night_timer_id)
+            self._night_timer_id = None
+        if seconds is not None:
+            self._night_timer_id = GLib.timeout_add_seconds(max(1, int(seconds)), self._on_night_timer)
+
+    def _sync_night(self, force_apply: bool = False) -> None:
+        """Recompute whether we are inside the schedule; switch mode and re-arm the boundary timer."""
+        enabled, f, t = self._night_window()
+        cur = local_seconds_of_day()
+        night = in_night_schedule(enabled, f, t, cur // 60)
+        self._arm_night_timer(seconds_until_boundary(enabled, f, t, cur))
+        if night == self._night:
+            if night and force_apply:
+                self._apply_night_cct()
+            return
+        self._night = night
+        if night:
+            self._log("NIGHT: schedule started; camera measurement paused")
+            self._pause()
+            self._apply_night_cct()
+        else:
+            self._log("NIGHT: schedule ended; resuming adaptive control")
+            self._controller.invalidate_applied()
+            self._resume(RESUME_DELAY_SEC)
 
     def _measure(self) -> None:
         if self._pause_reason() is not None:
@@ -384,6 +443,12 @@ class Service:
             if not cfg["service"]["enabled"]:
                 self._log("CONFIG: enabled=false; stopping")
                 self._loop.quit()
+            return
+
+        if key.startswith("night-schedule-"):
+            self._log(f"CONFIG: {key} changed")
+            self._svc = dict(cfg["service"])
+            self._sync_night(force_apply=True)
             return
 
         self._log(f"CONFIG: {key} changed")
@@ -626,6 +691,7 @@ class Service:
 
     def _start(self) -> None:
         self._interval = self._base_interval()
+        self._sync_night()
         self._refresh_state()
         if self._pause_reason() is None:
             self._measure()  # first measurement right away; _measure schedules the next
@@ -650,6 +716,7 @@ class Service:
 
     def _shutdown(self) -> int:
         self._cancel_timer()
+        self._arm_night_timer(None)
         self._cancel_recompute()
         self._output.cancel_transition(complete=True)
         self._output.release_brightness_control()

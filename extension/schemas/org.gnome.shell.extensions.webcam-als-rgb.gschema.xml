@@ -112,6 +112,36 @@
       <summary>PSR2 full refresh</summary>
       <description>Force full-screen redraw on Night Light changes (Intel PSR2 panels).</description>
     </key>
+    <key name="night-schedule-enabled" type="b">
+      <default>false</default>
+      <summary>Fixed night schedule</summary>
+      <description>During the schedule the camera is not used; a fixed color temperature is applied.</description>
+    </key>
+    <key name="night-schedule-temp" type="i">
+      <default>3700</default>
+      <range min="1000" max="6500"/>
+      <summary>Night fixed temperature (K)</summary>
+    </key>
+    <key name="night-schedule-from-hour" type="i">
+      <default>22</default>
+      <range min="0" max="23"/>
+      <summary>Night start hour</summary>
+    </key>
+    <key name="night-schedule-from-minute" type="i">
+      <default>0</default>
+      <range min="0" max="59"/>
+      <summary>Night start minute</summary>
+    </key>
+    <key name="night-schedule-to-hour" type="i">
+      <default>7</default>
+      <range min="0" max="23"/>
+      <summary>Night end hour</summary>
+    </key>
+    <key name="night-schedule-to-minute" type="i">
+      <default>0</default>
+      <range min="0" max="59"/>
+      <summary>Night end minute</summary>
+    </key>
     <key name="show-indicator" type="b">
       <default>false</default>
       <summary>Show panel indicator</summary>
