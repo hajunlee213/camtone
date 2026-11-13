@@ -168,8 +168,9 @@ def _analyze_frames(
     black_level: float = 16.0,
     roi_mode: str = "full",
     yuv_range: str = "limited",
-) -> tuple[float, float, float, float, tuple[float, float, float]]:
-    """Batch-compute luma, effective luma, saturation %, CCT (McCamy), and mean RGB."""
+    gamma: float = 1.0,
+) -> tuple[float, float, float, float, float, tuple[float, float, float]]:
+    """Batch-compute luma, effective luma, linear luma mean, saturation %, CCT (McCamy), and mean RGB."""
     _, h, w, _ = frames.shape
     y = frames[:, :, :, 0].astype(np.float32)
     u = np.repeat(frames[:, :, 0::2, 1].astype(np.float32), 2, axis=2) - 128.0
@@ -191,6 +192,7 @@ def _analyze_frames(
     # TODO(calibration): verify camera Y/UV range (strict limited 16..235 / 16..240 vs full 0..255)
     if yuv_range == "full":
         eff_black = 0.0
+        y_span = 255.0
         y_comp = y_roi
         u_scaled = u_roi
         v_scaled = v_roi
@@ -227,10 +229,12 @@ def _analyze_frames(
     else:
         cct = 6500.0
 
+    y_norm = np.clip((y_roi - eff_black) / y_span, 0.0, 1.0)
+    luma_lin_mean = float(y_norm.mean()) if gamma == 1.0 else float((y_norm ** gamma).mean())
     luma_mean = float(y_roi.mean())
     luma_eff = max(luma_mean - eff_black, 0.5)
     rgb_mean = (float(r.mean()), float(g.mean()), float(b.mean()))
-    return luma_mean, luma_eff, sat_pct, cct, rgb_mean
+    return luma_mean, luma_eff, luma_lin_mean, sat_pct, cct, rgb_mean
 
 
 class WebcamSensor:
@@ -327,27 +331,26 @@ class WebcamSensor:
                 warmup = 1 if len(frames) <= 3 else 2
                 usable = frames[warmup:] if len(frames) > warmup else frames
 
-                luma, luma_eff, sat_pct, cct, rgb_mean = _analyze_frames(
-                    usable, self.black_level, self.roi_mode, self.yuv_range
+                luma, luma_eff, luma_lin_mean, sat_pct, cct, rgb_mean = _analyze_frames(
+                    usable, self.black_level, self.roi_mode, self.yuv_range, self.gamma
                 )
                 score = self._candidate_score(luma, sat_pct)
                 if best_score is None or score < best_score:
                     best_score = score
-                    best_metrics = (luma, luma_eff, sat_pct, cct, rgb_mean, exp)
+                    best_metrics = (luma, luma_eff, luma_lin_mean, sat_pct, cct, rgb_mean, exp)
 
                 in_range = self.target_luma_min <= luma <= self.target_luma_max and sat_pct <= 2.0
                 at_low_limit = exp <= self.min_exposure and (luma > self.target_luma_max or sat_pct > 2.0)
                 at_high_limit = exp >= self.max_exposure and luma < self.target_luma_min
                 if in_range or at_low_limit or at_high_limit:
-                    best_metrics = (luma, luma_eff, sat_pct, cct, rgb_mean, exp)
+                    best_metrics = (luma, luma_eff, luma_lin_mean, sat_pct, cct, rgb_mean, exp)
                     break
 
                 # Proportional exposure step toward target_luma_setpoint in linear light space
                 eff_black = 0.0 if self.yuv_range == "full" else self.black_level
                 y_max = 255.0 if self.yuv_range == "full" else 235.0
                 y_span = max(y_max - eff_black, 1.0)
-                cur_norm = max(1e-4, min(1.0, luma_eff / y_span))
-                cur_lin = cur_norm ** self.gamma
+                cur_lin = max(1e-4, min(1.0, luma_lin_mean))
                 target_norm = max(1e-4, min(1.0, (self.target_luma_setpoint - eff_black) / y_span))
                 target_lin = target_norm ** self.gamma
                 ratio = target_lin / max(cur_lin, 1e-6)
@@ -359,12 +362,9 @@ class WebcamSensor:
                 exp = next_exp
 
             assert best_metrics is not None
-            luma, luma_eff, sat_pct, cct, rgb_mean, final_exp = best_metrics
+            luma, luma_eff, luma_lin_mean, sat_pct, cct, rgb_mean, final_exp = best_metrics
             self.last_exposure = final_exp
-            eff_black = 0.0 if self.yuv_range == "full" else self.black_level
-            y_max = 255.0 if self.yuv_range == "full" else 235.0
-            y_span = max(y_max - eff_black, 1.0)
-            luma_lin = max(1e-4, min(1.0, luma_eff / y_span)) ** self.gamma
+            luma_lin = max(1e-4, min(1.0, luma_lin_mean))
             ev_index = luma_lin / (final_exp / 100.0)
             ev_log = math.log2(max(ev_index, 1e-6))
             return SensorReading(
