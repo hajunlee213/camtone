@@ -1,6 +1,7 @@
 import argparse
 import json
 from pathlib import Path
+import subprocess
 import time
 from typing import Any
 
@@ -125,13 +126,22 @@ def main(argv: list[str] | None = None) -> int:
         output.ensure_night_light_active()
 
     if args.once:
-        run_cycle(sensor, controller, output, args.dry_run)
+        try:
+            run_cycle(sensor, controller, output, args.dry_run)
+        except (subprocess.CalledProcessError, RuntimeError, OSError) as exc:
+            ts = time.strftime("%H:%M:%S")
+            print(f"[{ts}] ERROR: cycle failed ({type(exc).__name__}: {exc})")
+            return 1
         return 0
 
     print(f"Starting webcam-as-als-rgb (interval={interval}s, dry_run={args.dry_run}). Press Ctrl+C to stop.")
     try:
         while True:
-            run_cycle(sensor, controller, output, args.dry_run)
+            try:
+                run_cycle(sensor, controller, output, args.dry_run)
+            except (subprocess.CalledProcessError, RuntimeError, OSError) as exc:
+                ts = time.strftime("%H:%M:%S")
+                print(f"[{ts}] WARN: cycle failed ({type(exc).__name__}: {exc})")
             time.sleep(interval)
     except KeyboardInterrupt:
         print("\nStopped.")
