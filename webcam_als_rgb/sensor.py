@@ -390,7 +390,7 @@ class WebcamSensor:
         """Capture frames using manual AE/AWB with auto-ranging exposure.
 
         Returns None if the camera is currently busy (e.g., video call).
-        Always restores auto_exposure=3 and white_balance_automatic=1 afterward.
+        Restores the previously saved V4L2 controls afterward.
         """
         def _measure(saved_ctrls: dict[str, int]) -> SensorReading:
             exp = self.last_exposure
