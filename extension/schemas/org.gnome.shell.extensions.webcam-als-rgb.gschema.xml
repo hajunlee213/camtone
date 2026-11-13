@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="webcam-als-rgb">
+  <schema id="org.gnome.shell.extensions.webcam-als-rgb" path="/org/gnome/shell/extensions/webcam-als-rgb/">
+    <key name="enabled" type="b">
+      <default>true</default>
+      <summary>Enable webcam ALS/RGB</summary>
+      <description>Master switch. When false the extension stops the service.</description>
+    </key>
+    <key name="auto-brightness" type="b">
+      <default>true</default>
+      <summary>Automatic brightness</summary>
+      <description>Adjust backlight from webcam ambient light.</description>
+    </key>
+    <key name="auto-color-temp" type="b">
+      <default>true</default>
+      <summary>Automatic color temperature</summary>
+      <description>Adjust Night Light temperature from webcam ambient color.</description>
+    </key>
+    <key name="brightness-min-pct" type="i">
+      <default>15</default>
+      <range min="1" max="100"/>
+      <summary>Minimum brightness (%)</summary>
+    </key>
+    <key name="brightness-max-pct" type="i">
+      <default>95</default>
+      <range min="1" max="100"/>
+      <summary>Maximum brightness (%)</summary>
+    </key>
+    <key name="brightness-offset-pct" type="i">
+      <default>0</default>
+      <range min="-50" max="50"/>
+      <summary>Learned brightness offset (%)</summary>
+      <description>Written by the daemon when the user adjusts brightness manually.</description>
+    </key>
+    <key name="display-cct-min" type="i">
+      <default>3400</default>
+      <range min="1700" max="6500"/>
+      <summary>Warmest display temperature (K)</summary>
+    </key>
+    <key name="display-cct-max" type="i">
+      <default>6200</default>
+      <range min="3000" max="10000"/>
+      <summary>Coolest display temperature (K)</summary>
+    </key>
+    <key name="cct-offset" type="i">
+      <default>0</default>
+      <range min="-1500" max="1500"/>
+      <summary>Color temperature offset (K)</summary>
+    </key>
+    <key name="ev-log-min" type="d">
+      <default>-8.8</default>
+      <range min="-16.0" max="0.0"/>
+      <summary>Dark reference ev_log</summary>
+    </key>
+    <key name="ev-log-max" type="d">
+      <default>-2.3</default>
+      <range min="-16.0" max="0.0"/>
+      <summary>Bright reference ev_log</summary>
+    </key>
+    <key name="ambient-cct-min" type="d">
+      <default>2800.0</default>
+      <range min="1000.0" max="8000.0"/>
+      <summary>Minimum ambient CCT (K)</summary>
+    </key>
+    <key name="ambient-cct-max" type="d">
+      <default>6500.0</default>
+      <range min="3000.0" max="15000.0"/>
+      <summary>Maximum ambient CCT (K)</summary>
+    </key>
+    <key name="cct-calibration" type="a(dd)">
+      <default>[]</default>
+      <summary>CCT calibration points</summary>
+      <description>List of (measured K, true K) pairs.</description>
+    </key>
+    <key name="ema-alpha" type="d">
+      <default>0.35</default>
+      <range min="0.01" max="1.0"/>
+      <summary>EMA smoothing factor</summary>
+    </key>
+    <key name="brightness-deadband-pct" type="i">
+      <default>2</default>
+      <range min="0" max="20"/>
+      <summary>Brightness deadband (%)</summary>
+    </key>
+    <key name="cct-deadband-k" type="i">
+      <default>80</default>
+      <range min="0" max="1000"/>
+      <summary>Color temperature deadband (K)</summary>
+    </key>
+    <key name="interval-ac-sec" type="i">
+      <default>60</default>
+      <range min="15" max="600"/>
+      <summary>Measurement interval on AC (s)</summary>
+    </key>
+    <key name="interval-battery-sec" type="i">
+      <default>120</default>
+      <range min="15" max="1200"/>
+      <summary>Measurement interval on battery (s)</summary>
+    </key>
+    <key name="interval-max-sec" type="i">
+      <default>300</default>
+      <range min="15" max="3600"/>
+      <summary>Maximum adaptive interval (s)</summary>
+    </key>
+    <key name="pause-on-battery" type="b">
+      <default>false</default>
+      <summary>Pause on battery</summary>
+      <description>Stop measuring while on battery power.</description>
+    </key>
+    <key name="psr-refresh" type="b">
+      <default>true</default>
+      <summary>PSR2 full refresh</summary>
+      <description>Force full-screen redraw on Night Light changes (Intel PSR2 panels).</description>
+    </key>
+    <key name="show-indicator" type="b">
+      <default>false</default>
+      <summary>Show panel indicator</summary>
+    </key>
+  </schema>
+</schemalist>
