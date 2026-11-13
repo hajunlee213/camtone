@@ -1,0 +1,35 @@
+{
+  "sensor": {
+    "device": "/dev/video0",
+    "width": 320,
+    "height": 240,
+    "wb_ref_temp": 4600,
+    "min_exposure": 50,
+    "max_exposure": 10000,
+    "initial_exposure": 350,
+    "black_level": 16.0,
+    "target_luma_min": 65.0,
+    "target_luma_max": 155.0,
+    "roi_mode": "full"
+  },
+  "controller": {
+    "ev_log_min": -1.0,
+    "ev_log_max": 5.5,
+    "brightness_min_pct": 15,
+    "brightness_max_pct": 95,
+    "ambient_cct_min": 2800.0,
+    "ambient_cct_max": 6500.0,
+    "display_cct_min": 3400,
+    "display_cct_max": 6200,
+    "cct_offset": 0,
+    "ema_alpha": 0.35,
+    "brightness_deadband_pct": 2,
+    "cct_deadband_k": 80
+  },
+  "output": {
+    "backlight_name": "intel_backlight",
+    "enable_brightness": true,
+    "enable_color_temp": true
+  },
+  "interval_sec": 15.0
+}
