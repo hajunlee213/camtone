@@ -21,6 +21,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "initial_exposure": 350,
         "black_level": 16.0,
         "gamma": 2.2,
+        "yuv_range": "limited",
         "target_luma_min": 65.0,
         "target_luma_max": 155.0,
         "roi_mode": "full",

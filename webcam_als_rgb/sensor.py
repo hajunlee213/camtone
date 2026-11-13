@@ -167,6 +167,7 @@ def _analyze_frames(
     frames: np.ndarray,
     black_level: float = 16.0,
     roi_mode: str = "full",
+    yuv_range: str = "limited",
 ) -> tuple[float, float, float, float, tuple[float, float, float]]:
     """Batch-compute luma, effective luma, saturation %, CCT (McCamy), and mean RGB."""
     _, h, w, _ = frames.shape
@@ -187,13 +188,26 @@ def _analyze_frames(
     u_roi = u[:, mask]
     v_roi = v[:, mask]
 
-    # Compensate YUV limited-range black floor before RGB conversion for cleaner CCT
-    y_comp = np.clip(y_roi - black_level, 0.0, 255.0 - black_level) * (255.0 / (255.0 - black_level))
-    r = np.clip(y_comp + 1.402 * v_roi, 0.0, 255.0)
-    g = np.clip(y_comp - 0.344136 * u_roi - 0.714136 * v_roi, 0.0, 255.0)
-    b = np.clip(y_comp + 1.772 * u_roi, 0.0, 255.0)
+    # TODO(calibration): verify camera Y/UV range (strict limited 16..235 / 16..240 vs full 0..255)
+    if yuv_range == "full":
+        eff_black = 0.0
+        y_comp = y_roi
+        u_scaled = u_roi
+        v_scaled = v_roi
+    else:
+        eff_black = black_level
+        y_span = max(235.0 - eff_black, 1.0)
+        y_comp = np.clip(y_roi - eff_black, 0.0, y_span) * (255.0 / y_span)
+        # TODO(calibration): verify chroma (U/V) range scaling (255/224 for 16..240) on target webcam
+        u_scaled = u_roi
+        v_scaled = v_roi
 
-    sat_pct = float(np.mean((y_roi >= 250.0) | (r >= 253.0) | (g >= 253.0) | (b >= 253.0)) * 100.0)
+    r = np.clip(y_comp + 1.402 * v_scaled, 0.0, 255.0)
+    g = np.clip(y_comp - 0.344136 * u_scaled - 0.714136 * v_scaled, 0.0, 255.0)
+    b = np.clip(y_comp + 1.772 * u_scaled, 0.0, 255.0)
+
+    # Judge saturation on luminance (y_comp) only so saturated colored objects do not lower exposure
+    sat_pct = float(np.mean(y_comp >= 250.0) * 100.0)
 
     rgb_norm = np.stack([r, g, b], axis=-1) / 255.0
     lin = np.where(rgb_norm <= 0.04045, rgb_norm / 12.92, ((rgb_norm + 0.055) / 1.055) ** 2.4)
@@ -214,7 +228,7 @@ def _analyze_frames(
         cct = 6500.0
 
     luma_mean = float(y_roi.mean())
-    luma_eff = max(luma_mean - black_level, 0.5)
+    luma_eff = max(luma_mean - eff_black, 0.5)
     rgb_mean = (float(r.mean()), float(g.mean()), float(b.mean()))
     return luma_mean, luma_eff, sat_pct, cct, rgb_mean
 
@@ -231,10 +245,13 @@ class WebcamSensor:
         initial_exposure: int = 350,
         black_level: float = 16.0,
         gamma: float = 2.2,
+        yuv_range: str = "limited",
         target_luma_min: float = 65.0,
         target_luma_max: float = 155.0,
         roi_mode: str = "full",
     ):
+        if yuv_range not in ("limited", "full"):
+            raise ValueError(f"yuv_range must be 'limited' or 'full', got {yuv_range!r}")
         self.device = device
         self.width = width
         self.height = height
@@ -245,6 +262,7 @@ class WebcamSensor:
         self.black_level = black_level
         # TODO(calibration): verify effective camera gamma (2.2 sRGB assumption vs V4L2 gamma control)
         self.gamma = gamma
+        self.yuv_range = yuv_range
         self.target_luma_min = target_luma_min
         self.target_luma_max = target_luma_max
         self.roi_mode = roi_mode
@@ -291,7 +309,7 @@ class WebcamSensor:
                 usable = frames[warmup:] if len(frames) > warmup else frames
 
                 luma, luma_eff, sat_pct, cct, rgb_mean = _analyze_frames(
-                    usable, self.black_level, self.roi_mode
+                    usable, self.black_level, self.roi_mode, self.yuv_range
                 )
                 best_metrics = (luma, luma_eff, sat_pct, cct, rgb_mean, exp)
 
@@ -302,10 +320,12 @@ class WebcamSensor:
                     break
 
                 # Proportional exposure step toward target luma (~105) in linear light space
-                y_span = max(235.0 - self.black_level, 1.0)
+                eff_black = 0.0 if self.yuv_range == "full" else self.black_level
+                y_max = 255.0 if self.yuv_range == "full" else 235.0
+                y_span = max(y_max - eff_black, 1.0)
                 cur_norm = max(1e-4, min(1.0, luma_eff / y_span))
                 cur_lin = cur_norm ** self.gamma
-                target_norm = max(1e-4, min(1.0, (105.0 - self.black_level) / y_span))
+                target_norm = max(1e-4, min(1.0, (105.0 - eff_black) / y_span))
                 target_lin = target_norm ** self.gamma
                 ratio = target_lin / max(cur_lin, 1e-6)
                 ratio = max(0.25, min(4.0, ratio))
@@ -318,7 +338,9 @@ class WebcamSensor:
             assert best_metrics is not None
             luma, luma_eff, sat_pct, cct, rgb_mean, final_exp = best_metrics
             self.last_exposure = final_exp
-            y_span = max(235.0 - self.black_level, 1.0)
+            eff_black = 0.0 if self.yuv_range == "full" else self.black_level
+            y_max = 255.0 if self.yuv_range == "full" else 235.0
+            y_span = max(y_max - eff_black, 1.0)
             luma_lin = max(1e-4, min(1.0, luma_eff / y_span)) ** self.gamma
             ev_index = luma_lin / (final_exp / 100.0)
             ev_log = math.log2(max(ev_index, 1e-6))
