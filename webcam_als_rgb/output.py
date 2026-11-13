@@ -1,10 +1,12 @@
+from dataclasses import dataclass
 import json
 import os
 from pathlib import Path
 import subprocess
 import tempfile
-import time
 from typing import Optional
+
+from gi.repository import GLib
 
 _BACKLIGHT_ROOT = Path("/sys/class/backlight")
 _TYPE_PRIORITY = {"raw": 0, "platform": 1, "firmware": 2}
@@ -77,6 +79,7 @@ class GnomeWaylandOutput:
         self._current_cct: Optional[int] = None
         self._saved_night_light: dict[str, str] = {}
         self._night_light_paused_warned = False
+        self._transition: Optional["_Transition"] = None
 
     def _read_max_brightness(self) -> int:
         max_file = self.backlight_dir / "max_brightness"
@@ -244,11 +247,25 @@ class GnomeWaylandOutput:
             pass
         return None
 
+    @property
+    def transitioning(self) -> bool:
+        """True while a non-blocking brightness/color transition is still scheduled."""
+        return self._transition is not None
+
     def apply_transition(
         self,
         brightness_pct: Optional[int] = None,
         cct: Optional[int] = None,
     ) -> None:
+        """Start a stepwise transition and return immediately.
+
+        Step 1 is applied synchronously; steps 2..N are GLib timeouts spaced by
+        transition_interval_sec. A transition already in progress is superseded:
+        it is cancelled without applying its final values, and the new one
+        interpolates from the value that is actually on screen right now.
+        Steps 2..N need a running GLib main loop (or wait_transition()).
+        """
+        self.cancel_transition()
         if self.dry_run:
             return
         do_b = (
@@ -279,14 +296,78 @@ class GnomeWaylandOutput:
                 self.set_color_temperature(cct)
             return
 
-        steps = self.transition_steps
-        for step in range(1, steps + 1):
-            frac = step / steps
-            if do_b and brightness_pct is not None and start_b is not None:
-                step_b = int(round(start_b + (brightness_pct - start_b) * frac))
-                self.set_brightness_pct(step_b)
-            if do_c and cct is not None and start_c is not None:
-                step_c = int(round(start_c + (cct - start_c) * frac))
-                self.set_color_temperature(step_c)
-            if self.transition_interval_sec > 0.0:
-                time.sleep(self.transition_interval_sec)
+        t = _Transition(
+            start_b=start_b if do_b else None,
+            end_b=brightness_pct if do_b else None,
+            start_c=start_c if do_c else None,
+            end_c=cct if do_c else None,
+            steps=self.transition_steps,
+        )
+        self._transition = t
+        if not self._transition_step() or self._transition is not t:
+            return
+        interval_ms = max(1, int(round(self.transition_interval_sec * 1000.0)))
+        t.source_id = GLib.timeout_add(interval_ms, self._on_transition_tick)
+
+    def cancel_transition(self, complete: bool = False) -> None:
+        """Stop the pending transition.
+
+        complete=True first writes the transition's final values (one write each), so an
+        interrupted fade (lock, sleep, shutdown) does not leave the screen half-way.
+        """
+        t = self._transition
+        if t is None:
+            return
+        self._transition = None
+        if t.source_id is not None:
+            GLib.source_remove(t.source_id)
+            t.source_id = None
+        if complete:
+            try:
+                if t.end_b is not None:
+                    self.set_brightness_pct(t.end_b)
+                if t.end_c is not None:
+                    self.set_color_temperature(t.end_c)
+            except (subprocess.CalledProcessError, OSError, ValueError) as exc:
+                print(f"WARN: failed to complete interrupted transition ({type(exc).__name__}: {exc})")
+
+    def wait_transition(self) -> None:
+        """Block by iterating the default GLib context until the transition ends (used by --once)."""
+        ctx = GLib.MainContext.default()
+        while self._transition is not None:
+            ctx.iteration(True)
+
+    def _on_transition_tick(self) -> bool:
+        return self._transition_step()
+
+    def _transition_step(self) -> bool:
+        """Apply the next step. Returns True if the GLib timeout should keep firing."""
+        t = self._transition
+        if t is None:
+            return False
+        t.done += 1
+        frac = t.done / t.steps
+        try:
+            if t.start_b is not None and t.end_b is not None:
+                self.set_brightness_pct(int(round(t.start_b + (t.end_b - t.start_b) * frac)))
+            if t.start_c is not None and t.end_c is not None:
+                self.set_color_temperature(int(round(t.start_c + (t.end_c - t.start_c) * frac)))
+        except (subprocess.CalledProcessError, OSError, ValueError) as exc:
+            print(f"WARN: transition aborted at step {t.done}/{t.steps} ({type(exc).__name__}: {exc})")
+            self._transition = None
+            return False
+        if t.done >= t.steps:
+            self._transition = None
+            return False
+        return True
+
+
+@dataclass
+class _Transition:
+    start_b: Optional[int]
+    end_b: Optional[int]
+    start_c: Optional[int]
+    end_c: Optional[int]
+    steps: int
+    done: int = 0
+    source_id: Optional[int] = None
