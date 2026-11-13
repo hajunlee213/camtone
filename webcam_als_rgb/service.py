@@ -41,6 +41,42 @@ UNCHANGED_BEFORE_BACKOFF = 3
 
 _CYCLE_ERRORS = (subprocess.CalledProcessError, RuntimeError, OSError, ValueError)
 
+BUS_NAME = "io.github.hajunlee213.WebcamAlsRgb"
+OBJECT_PATH = "/io/github/hajunlee213/WebcamAlsRgb"
+PAUSED_ERROR = f"{BUS_NAME}.Paused"
+
+# Property name -> D-Bus signature. Read-only; the daemon owns the values.
+_PROP_SIGNATURES = {
+    "State": "s",
+    "EvLog": "d",
+    "AmbientCct": "d",
+    "TargetBrightness": "i",
+    "TargetCct": "i",
+    "LastMeasured": "x",
+}
+_PROP_DEFAULTS: dict[str, Any] = {
+    "State": "starting",
+    "EvLog": 0.0,
+    "AmbientCct": 0.0,
+    "TargetBrightness": -1,
+    "TargetCct": -1,
+    "LastMeasured": 0,
+}
+_INTROSPECTION_XML = f"""
+<node>
+  <interface name="{BUS_NAME}">
+    <method name="MeasureNow"/>
+    <property name="State" type="s" access="read"/>
+    <property name="EvLog" type="d" access="read"/>
+    <property name="AmbientCct" type="d" access="read"/>
+    <property name="TargetBrightness" type="i" access="read"/>
+    <property name="TargetCct" type="i" access="read"/>
+    <property name="LastMeasured" type="x" access="read"/>
+    <property name="NextMeasureIn" type="i" access="read"/>
+  </interface>
+</node>
+"""
+
 
 @dataclass
 class CycleResult:
@@ -152,9 +188,11 @@ class Service:
         self._on_battery = False
 
         self._state = ""
-        self._props: dict[str, Any] = {}
+        self._props: dict[str, Any] = dict(_PROP_DEFAULTS)
         self._session: Optional[Gio.DBusConnection] = None
         self._system: Optional[Gio.DBusConnection] = None
+        self._conn: Optional[Gio.DBusConnection] = None  # service bus connection (set in _on_bus_acquired)
+        self._bus_owner_id = 0
 
     # ----- helpers -------------------------------------------------------
 
@@ -178,10 +216,24 @@ class Service:
         return None
 
     def _publish(self, changed: dict[str, Any]) -> None:
-        """Record runtime properties. INT-07 emits PropertiesChanged from here."""
+        """Store runtime properties and emit PropertiesChanged for the ones that moved."""
         changed = {k: v for k, v in changed.items() if self._props.get(k) != v}
-        if changed:
-            self._props.update(changed)
+        if not changed:
+            return
+        self._props.update(changed)
+        if self._conn is None:
+            return
+        values = {k: GLib.Variant(_PROP_SIGNATURES[k], v) for k, v in changed.items()}
+        try:
+            self._conn.emit_signal(
+                None,
+                OBJECT_PATH,
+                "org.freedesktop.DBus.Properties",
+                "PropertiesChanged",
+                GLib.Variant("(sa{sv}as)", (BUS_NAME, values, [])),
+            )
+        except GLib.Error as exc:
+            self._log(f"WARN: PropertiesChanged not sent ({exc.message})")
 
     def _refresh_state(self) -> None:
         reason = self._pause_reason()
@@ -214,7 +266,15 @@ class Service:
         # One-shot: the source is removed by returning False; _measure() schedules the next one.
         self._timer_id = None
         self._timer_due = None
-        self._measure()
+        try:
+            self._measure()
+        except Exception as exc:  # keep the schedule alive if something unexpected escapes
+            self._log(f"ERROR: measurement loop failed ({type(exc).__name__}: {exc}); retrying")
+            self._interval = self._base_interval()
+            self._streak = 0
+            self._refresh_state()
+            if self._pause_reason() is None:
+                self._schedule(self._interval)
         return False
 
     def _pause(self) -> None:
@@ -422,6 +482,60 @@ class Service:
         if "OnBattery" in changed:
             self._on_battery_changed(bool(changed["OnBattery"]))
 
+    # ----- D-Bus service (INT-07) ---------------------------------------
+
+    def _next_measure_in(self) -> int:
+        if self._timer_due is None:
+            return -1
+        return max(0, int(round(self._timer_due - time.monotonic())))
+
+    def _on_bus_acquired(self, conn: Gio.DBusConnection, _name: str) -> None:
+        node = Gio.DBusNodeInfo.new_for_xml(_INTROSPECTION_XML)
+        conn.register_object(
+            OBJECT_PATH,
+            node.interfaces[0],
+            self._on_method_call,
+            self._on_get_property,
+            self._on_set_property,
+        )
+        self._conn = conn
+
+    def _on_name_acquired(self, _conn: Gio.DBusConnection, _name: str) -> None:
+        self._log(f"D-Bus: owning {BUS_NAME}")
+        self._start()  # Type=dbus in the unit: ready once the name is ours
+
+    def _on_name_lost(self, _conn: Optional[Gio.DBusConnection], _name: str) -> None:
+        self._log(f"ERROR: could not own {BUS_NAME} (another instance running?)")
+        self._exit_code = 1
+        self._loop.quit()
+
+    def _on_get_property(self, _conn, _sender, _path, _iface, name: str) -> GLib.Variant:
+        if name == "NextMeasureIn":
+            return GLib.Variant("i", self._next_measure_in())
+        return GLib.Variant(_PROP_SIGNATURES[name], self._props[name])
+
+    @staticmethod
+    def _on_set_property(_conn, _sender, _path, _iface, _name, _value) -> bool:
+        return False  # all properties are read-only
+
+    def _on_method_call(self, _conn, _sender, _path, _iface, method: str, _params, invocation) -> None:
+        if method != "MeasureNow":
+            invocation.return_dbus_error(f"{BUS_NAME}.UnknownMethod", method)
+            return
+        reason = self._pause_reason()
+        if reason is not None:
+            invocation.return_dbus_error(PAUSED_ERROR, f"measurement paused: {reason}")
+            return
+        self._cancel_timer()
+        self._interval = self._base_interval()
+        self._streak = 0
+        try:
+            self._measure()
+        except Exception as exc:  # report to the caller instead of dropping the call
+            invocation.return_dbus_error(f"{BUS_NAME}.Failed", f"{type(exc).__name__}: {exc}")
+            return
+        invocation.return_value(None)
+
     # ----- lifecycle -----------------------------------------------------
 
     def _on_quit_signal(self) -> bool:
@@ -442,7 +556,14 @@ class Service:
             self._settings.connect("changed", self._on_settings_changed)
         GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGTERM, self._on_quit_signal)
         GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGINT, self._on_quit_signal)
-        self._start()
+        self._bus_owner_id = Gio.bus_own_name(
+            Gio.BusType.SESSION,
+            BUS_NAME,
+            Gio.BusNameOwnerFlags.NONE,
+            self._on_bus_acquired,
+            self._on_name_acquired,
+            self._on_name_lost,
+        )
         self._loop.run()
         return self._shutdown()
 
