@@ -18,6 +18,7 @@ const DAEMON_IFACE = 'io.github.hajunlee213.WebcamAlsRgb';
 const SYSTEMD_NAME = 'org.freedesktop.systemd1';
 const SYSTEMD_PATH = '/org/freedesktop/systemd1';
 const SYSTEMD_MANAGER_IFACE = 'org.freedesktop.systemd1.Manager';
+const SYSTEMD_UNIT_IFACE = 'org.freedesktop.systemd1.Unit';
 
 // Extensions that touch the same Night Light / brightness state. Warned about, never disabled.
 const CONFLICT_UUIDS = [
@@ -30,14 +31,18 @@ const CONFLICT_UUIDS = [
 const EXTENSION_ACTIVE_STATE = ExtensionState.ACTIVE ?? ExtensionState.ENABLED;
 
 /**
- * Starts and stops the systemd user unit over the session bus.
- * All calls are asynchronous; results are reported through onChange.
+ * Starts and stops the systemd user unit over the session bus, and follows its ActiveState
+ * (e.g. 'failed' after a crash loop). All calls are asynchronous; changes are reported through onChange.
  */
 class UnitController {
     constructor(onChange) {
         this._onChange = onChange;
+        this._cancellable = new Gio.Cancellable();
+        this._unitProxy = null;
+        this._unitPropsId = 0;
         this.pending = false;
         this.error = null;
+        this.activeState = null;
     }
 
     start() {
@@ -48,7 +53,71 @@ class UnitController {
         this._call('StopUnit', false);
     }
 
+    // LoadUnit gives the unit's object path; a proxy on that path reports ActiveState changes.
+    // Safe to call repeatedly: an unchanged path only re-reads the cached state.
+    watch() {
+        if (!this._onChange)
+            return;
+        Gio.DBus.session.call(
+            SYSTEMD_NAME, SYSTEMD_PATH, SYSTEMD_MANAGER_IFACE, 'LoadUnit',
+            new GLib.Variant('(s)', [UNIT_NAME]), new GLib.VariantType('(o)'),
+            Gio.DBusCallFlags.NONE, -1, this._cancellable,
+            (connection, res) => {
+                let path;
+                try {
+                    [path] = connection.call_finish(res).deepUnpack();
+                } catch (e) {
+                    if (!this._cancellable.is_cancelled())
+                        console.error(`webcam-als-rgb: LoadUnit ${UNIT_NAME} failed: ${e.message}`);
+                    return;
+                }
+                if (this._cancellable.is_cancelled())
+                    return;
+                if (this._unitProxy?.get_object_path() === path) {
+                    this._readState();
+                    return;
+                }
+                this._dropProxy();
+                Gio.DBusProxy.new_for_bus(
+                    Gio.BusType.SESSION, Gio.DBusProxyFlags.DO_NOT_AUTO_START, null,
+                    SYSTEMD_NAME, path, SYSTEMD_UNIT_IFACE, this._cancellable,
+                    (source, proxyRes) => {
+                        let proxy;
+                        try {
+                            proxy = Gio.DBusProxy.new_for_bus_finish(proxyRes);
+                        } catch (e) {
+                            if (!this._cancellable.is_cancelled())
+                                console.error(`webcam-als-rgb: cannot watch ${UNIT_NAME}: ${e.message}`);
+                            return;
+                        }
+                        this._unitProxy = proxy;
+                        this._unitPropsId = proxy.connect('g-properties-changed', () => this._readState());
+                        this._readState();
+                    });
+            });
+    }
+
+    _readState() {
+        const state = this._unitProxy?.get_cached_property('ActiveState')?.deepUnpack() ?? null;
+        if (state === this.activeState)
+            return;
+        this.activeState = state;
+        this._notify();
+    }
+
+    _dropProxy() {
+        if (this._unitProxy) {
+            if (this._unitPropsId)
+                this._unitProxy.disconnect(this._unitPropsId);
+            this._unitPropsId = 0;
+            this._unitProxy = null;
+        }
+        this.activeState = null;
+    }
+
     detach() {
+        this._cancellable.cancel();
+        this._dropProxy();
         this._onChange = null;
     }
 
@@ -74,6 +143,7 @@ class UnitController {
                     this.error = error;
                 }
                 this._notify();
+                this.watch();
             });
     }
 
@@ -376,8 +446,12 @@ class WebcamAlsRgbToggle extends QuickMenuToggle {
             subtitle = _('꺼짐');
         else if (this._unit.error)
             subtitle = _('설치 오류');
-        else if (!owner)
-            subtitle = this._unit.pending ? _('시작 중') : _('대기 중');
+        else if (!owner) {
+            if (this._unit.activeState === 'failed')
+                subtitle = _('오류');
+            else
+                subtitle = this._unit.pending ? _('시작 중') : _('대기 중');
+        }
         else
             subtitle = this._runningSubtitle(this._prop('State'));
 
@@ -451,6 +525,7 @@ export default class WebcamAlsRgbExtension extends Extension {
         this._unit = new UnitController(() => this._indicator?.syncState());
         this._indicator = new WebcamAlsRgbIndicator(this, this._settings, this._unit);
         Main.panel.statusArea.quickSettings.addExternalIndicator(this._indicator);
+        this._unit.watch();
 
         this._enabledChangedId = this._settings.connect('changed::enabled', () => this._syncUnit());
         this._psrChangedId = this._settings.connect('changed::psr-refresh', () => this._syncPsr());
