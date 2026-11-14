@@ -1,5 +1,7 @@
 # CamTone
 
+> **English summary.** CamTone turns a laptop webcam into an ambient light (ALS) and color temperature (CCT) sensor. It briefly samples `/dev/video0` with manual exposure and fixed white balance, then adjusts screen brightness and GNOME Night Light on GNOME 50 Wayland. A GNOME Shell extension provides a Quick Settings toggle and a preferences window; a small Python daemon (systemd user service) does the measuring. UI strings are English with a Korean translation. Install with `./install.sh`, then log out and back in. The rest of this README is in Korean. Questions and bug reports are welcome in the issue tracker.
+
 노트북 웹캠(`/dev/video0`)을 **주변광 조도 센서(ALS) + 색온도 센서(RGB/CCT)**처럼 쓰고, GNOME Wayland에서 화면 밝기와 Night Light 색온도를 주변 환경에 맞춰 자동으로 조절하는 프로젝트입니다. 색온도 센서가 없는 노트북을 위한 소프트웨어 대체 구현입니다.
 
 > 이전 이름은 `webcam-as-als-rgb`입니다. v0.1.10부터 CamTone으로 바뀌었고, `./install.sh`가 이전 설치를 정리하고 설정을 새 이름으로 옮깁니다.
@@ -24,7 +26,7 @@ v0.1.6부터 Python 데몬과 GNOME Shell 확장이 하나로 합쳐졌습니다
    * 측정이 끝나면 `finally`에서 측정 전 저장해 둔 카메라 컨트롤 값으로 즉시 되돌립니다.
 4. **GNOME Wayland 제어**
    * **밝기 (GNOME 셸 백엔드, v0.1.8)**: GNOME 셸의 `org.gnome.Shell.Brightness.SetAutoBrightnessTarget`에 목표 밝기를 넘깁니다. 셸이 그 값을 기준으로 밝기를 설정하고 밝기 슬라이더가 따라갑니다. 슬라이더는 사용자 보정으로 쓰이며 가운데(50%)가 보정 없음입니다. 이 경우 데몬은 밝기 오프셋을 학습하지 않습니다. 자동 밝기를 끄거나 서비스를 끄면 `SetAutoBrightnessTarget(-1.0)`으로 제어를 GNOME에 돌려줍니다.
-   * **밝기 (logind 백엔드, GNOME 48 이하 등)**: 셸 밝기 인터페이스가 없을 때 `systemd-logind` D-Bus `org.freedesktop.login1.Session.SetBrightness`(`sudo` 불필요)로 백라이트를 직접 씁니다. 시스템 슬라이더나 단축키로 밝기를 직접 바꾸면 그 차이를 `brightness-offset-pct`로 학습해 다음 측정부터 반영하고, 값은 GSettings에 저장되어 재시작 후에도 유지됩니다.
+   * **밝기 (logind 백엔드, 대체 경로)**: 셸 밝기 인터페이스(`org.gnome.Shell.Brightness`)가 없을 때 `systemd-logind` D-Bus `org.freedesktop.login1.Session.SetBrightness`(`sudo` 불필요)로 백라이트를 직접 씁니다. 시스템 슬라이더나 단축키로 밝기를 직접 바꾸면 그 차이를 `brightness-offset-pct`로 학습해 다음 측정부터 반영하고, 값은 GSettings에 저장되어 재시작 후에도 유지됩니다.
    * 현재 백엔드는 D-Bus 속성 `BrightnessBackend`(`shell` / `logind` / `none`)와 서비스 로그 `BRIGHTNESS: backend=…`에 나타납니다.
    * **색온도**: GNOME Night Light (`night-light-temperature`).
    * **부드러운 전환**: 밝기와 색온도 모두 현재 값에서 목표 값까지 `300ms × 4단계`(총 1.2초)로 나눠 적용합니다. 전환은 메인 루프에서 비동기로 진행되어 UI를 멈추지 않으며, 새 목표가 오면 현재 값에서 다시 보간합니다.
@@ -33,7 +35,7 @@ v0.1.6부터 Python 데몬과 GNOME Shell 확장이 하나로 합쳐졌습니다
 
 ## 2. 요구 사항
 
-* Linux, GNOME 50 Wayland 세션 (GNOME Shell 확장 사용)
+* Linux, GNOME 50 Wayland 세션 (확장은 GNOME Shell 50만 지원합니다. 다른 버전은 확인하지 않았습니다.)
 * Python 3.10+, `numpy`, PyGObject (`gi`, `Gio`/`GLib` 타입 라이브러리)
 * `v4l-utils`(`v4l2-ctl`), `psmisc`(`fuser`), `glib2`(`gsettings`, `glib-compile-schemas`), `systemd`(`systemctl --user`), `gnome-shell`(`gnome-extensions`)
 * YUYV 출력을 지원하는 웹캠 (`/dev/video0`)
@@ -67,14 +69,14 @@ cd /path/to/camtone
 | Python 패키지 | `~/.local/share/camtone/camtone/` |
 | 실행 파일 | `~/.local/bin/camtone` (패키지를 `python3 -m camtone`로 실행하는 셸 스크립트) |
 | systemd 사용자 유닛 | `~/.config/systemd/user/camtone.service` |
-| GNOME Shell 확장 | `~/.local/share/gnome-shell/extensions/camtone@hajun.github.io/` |
+| GNOME Shell 확장 | `~/.local/share/gnome-shell/extensions/camtone@hajunlee213.github.io/` |
 | GSettings 스키마 | 확장 폴더의 `schemas/` 와 `~/.local/share/glib-2.0/schemas/` 두 곳 |
 
 설치 후 **Wayland에서는 로그아웃 후 다시 로그인해야** 새 확장이 로드됩니다.
 
 > 서비스는 **로그인 시 자동으로 뜨지 않습니다.** 유닛에 `[Install]` 섹션이 없고 `systemctl --user enable`을 하지 않기 때문입니다. 켜고 끄는 일은 확장의 토글이 맡습니다.
 
-이전 버전(`camtone-psr@hajun.github.io` 확장, 수동으로 만든 유닛)이 있으면 설치 중에 정지·비활성화하고 제거합니다.
+이전 버전의 확장(`webcam-als-rgb-psr@hajun.github.io`, `webcam-als-rgb@hajun.github.io`, v0.1.10의 `camtone@hajun.github.io`)이나 수동으로 만든 유닛이 있으면 설치 중에 정지·비활성화하고 제거합니다. 저장된 설정은 그대로 이어집니다.
 
 ### 3.2 개발용 설치 (`--dev`)
 
@@ -118,7 +120,7 @@ GNOME 상단 퀵 설정의 토글이 이 프로젝트의 **유일한 on/off 스�
 | 확장 앱에서 확장 켬 | `enabled`가 true이면 서비스 시작. |
 | 잠금 화면 진입 | 확장이 잠금 상태에서 꺼져도 **서비스는 멈추지 않습니다.** 데몬이 화면 잠금 신호를 받아 스스로 측정을 멈춥니다. 잠금을 풀면 다시 측정합니다. |
 
-토글 부제목에는 상태가 나옵니다. 켜져 있으면 `밝기 48% · 4610K`, 일시정지 중이면 사유(`잠김`, `배터리 절약`, `카메라 사용 중`), 꺼져 있으면 `꺼짐`입니다. 서비스 시작에 실패하면 `설치 오류`로 표시되고 로그에 기록됩니다.
+토글 부제목에는 상태가 나옵니다. 켜져 있으면 `밝기 48% · 4610K`, 일시정지 중이면 사유(`잠김`, `절전`, `화면 꺼짐`, `배터리 절약`, `카메라 사용 중`), 꺼져 있으면 `꺼짐`입니다. 서비스 시작에 실패하면 `설치 오류`로, 실행 중 서비스가 실패하면 `오류`로 표시되고 로그에 기록됩니다. (UI 문자열은 영어가 원문이고, 한국어 로케일에서는 번역이 표시됩니다.)
 
 ### 4.2 퀵 설정 메뉴
 
@@ -127,6 +129,7 @@ GNOME 상단 퀵 설정의 토글이 이 프로젝트의 **유일한 on/off 스�
 * **자동 밝기** / **자동 색온도**: 각 기능을 따로 켜고 끕니다 (`auto-brightness`, `auto-color-temp`).
 * **주변 값**(비활성): 마지막 측정의 `ev`, 색온도, 측정 후 경과 시간.
 * **지금 측정**: 측정 주기와 무관하게 즉시 1회 측정하고 주기를 기본값으로 되돌립니다.
+* **설정…**: 설정 창을 엽니다 (§4.4).
 
 ### 4.3 측정 주기 정책
 
@@ -136,7 +139,8 @@ GNOME 상단 퀵 설정의 토글이 이 프로젝트의 **유일한 on/off 스�
 
 | 조건 | 감지 방법 | 동작 |
 | :--- | :--- | :--- |
-| 화면 잠금·화면 꺼짐 | 세션 버스 `org.gnome.ScreenSaver`의 `ActiveChanged` | 타이머를 멈추고 진행 중인 전환을 취소합니다. 잠금 해제 2초 뒤 1회 측정 후 재개합니다. |
+| 화면 잠금 | 세션 버스 `org.gnome.ScreenSaver`의 `ActiveChanged` | 타이머를 멈추고 진행 중인 전환을 취소합니다. 잠금 해제 2초 뒤 1회 측정 후 재개합니다. |
+| 화면 꺼짐 (잠금 없이 화면만 꺼진 경우 포함) | Mutter `org.gnome.Mutter.DisplayConfig`의 `PowerSaveMode` | 꺼지면 멈추고, 다시 켜지면 2초 뒤 1회 측정 후 재개합니다. |
 | 절전 진입·복귀 | 시스템 버스 logind `PrepareForSleep` | 절전 진입 시 타이머를 멈춥니다. 복귀 2초 뒤 1회 측정합니다. |
 | 배터리 + `pause-on-battery = true` | UPower `OnBattery` | 배터리 전환 시 멈추고, 전원 복귀 시 즉시 1회 측정합니다. |
 | 다른 앱이 카메라 사용 중 | `fuser /dev/video0` | 이번 회차만 건너뜁니다. 이때 주기를 늘리지 않습니다. |
@@ -148,7 +152,7 @@ GNOME 상단 퀵 설정의 토글이 이 프로젝트의 **유일한 on/off 스�
 * 밝기나 색온도를 한 번이라도 바꾸면 기본 간격으로 되돌아갑니다.
 * 전원 상태가 바뀌면 기본 간격을 다시 계산하고 1회 측정합니다.
 
-이전 버전은 15초마다 고정으로 측정했습니다. 정상 사용에서는 측정 횟수가 크게 줄어듭니다. 실제 감소폭과 측정 1회의 상주 비용은 `docs/v0.1.6-change-report-packaging.md`와 데몬 보고서에 기록합니다.
+이전 버전은 15초마다 고정으로 측정했습니다. 정상 사용에서는 측정 횟수가 크게 줄어듭니다. 상주 데몬의 측정 1회는 개발 랩탑에서 1.2~1.6초, CPU 0.07~0.2초였습니다.
 
 ### 4.4 설정 창 (v0.1.7)
 
@@ -202,7 +206,7 @@ gdbus call --session \
   --method io.github.hajunlee213.CamTone.MeasureNow
 ```
 
-주요 속성은 `State`(`running`, `paused-locked`, `paused-sleep`, `paused-battery`, `camera-busy`), `EvLog`, `AmbientCct`, `TargetBrightness`, `TargetCct`, `LastMeasured`, `NextMeasureIn`, `BrightnessBackend`(`shell`, `logind`, `none`)입니다.
+주요 속성은 `State`(`running`, `paused-locked`, `paused-sleep`, `paused-display-off`, `paused-battery`, `camera-busy`), `EvLog`, `AmbientCct`, `TargetBrightness`, `TargetCct`, `LastMeasured`, `NextMeasureIn`, `BrightnessBackend`(`shell`, `logind`, `none`)입니다.
 
 ---
 
@@ -236,7 +240,11 @@ gsettings get org.gnome.shell.extensions.camtone brightness-max-pct
 | `interval-max-sec` | `300` | 적응형 증가 상한(초) |
 | `pause-on-battery` | `false` | `true`면 배터리에서 측정을 멈춥니다. |
 | `psr-refresh` | `true` | PSR2 화면 갱신기 사용 (§7) |
-| `show-indicator` | `false` | 상단바 아이콘 |
+| `night-schedule-enabled` | `false` | 고정 야간 스케줄. 구간 안에서는 색온도만 고정하고 밝기는 계속 자동 조절합니다. |
+| `night-schedule-temp` | `3700` | 야간 고정 색온도(K) |
+| `night-schedule-from-hour` / `night-schedule-from-minute` | `22` / `0` | 야간 시작 시각 |
+| `night-schedule-to-hour` / `night-schedule-to-minute` | `7` / `0` | 야간 종료 시각. 시작보다 이르면 자정을 넘깁니다. 시작과 같으면 스케줄이 꺼집니다. |
+| `show-indicator` | `false` | 서비스가 켜져 있을 때 상단바 아이콘 표시 (다시 로그인해야 반영) |
 
 하드웨어 센서 설정(장치 경로, 해상도, 노출 범위 등)은 GSettings에 없습니다. 코드 기본값을 쓰고, 개발용으로만 JSON 덮어쓰기를 씁니다 (§8).
 

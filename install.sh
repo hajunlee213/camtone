@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# CamTone 설치 스크립트 (v0.1.10)
+# CamTone 설치 스크립트 (v0.1.11)
 #
 #   ./install.sh        파일을 ~/.local 아래로 복사해 설치 (일반 사용)
 #   ./install.sh --dev  복사 대신 이 저장소의 파일을 심볼릭 링크로 연결 (개발용)
@@ -39,13 +39,15 @@ done
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 : "${HOME:?HOME 환경 변수가 설정되어 있지 않습니다}"
 
-EXTENSION_UUID="camtone@hajun.github.io"
+EXTENSION_UUID="camtone@hajunlee213.github.io"
+# v0.1.10에서 쓴 uuid (도메인이 계정과 달라 v0.1.11에서 바꿈). 설정 경로는 같으므로 확장만 지운다.
+PREV_EXTENSION_UUID="camtone@hajun.github.io"
 LEGACY_PSR_UUID="webcam-als-rgb-psr@hajun.github.io"
 # v0.1.10 이전 이름 (webcam-as-als-rgb). 설치 때 정리하고 설정을 새 이름으로 옮긴다.
 OLD_EXTENSION_UUID="webcam-als-rgb@hajun.github.io"
 OLD_SERVICE_NAME="webcam-als-rgb.service"
 OLD_SCHEMA_FILE="org.gnome.shell.extensions.webcam-als-rgb.gschema.xml"
-OLD_DATA_DIR="$HOME/.local/share/camtone"
+OLD_DATA_DIR="$HOME/.local/share/webcam-als-rgb"
 OLD_LAUNCHER="$HOME/.local/bin/webcam-als-rgb"
 OLD_DESKTOP_NAME="webcam-als-rgb-prefs.desktop"
 OLD_STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/webcam-as-als-rgb"
@@ -64,7 +66,7 @@ LEGACY_EXT_DIR="$HOME/.local/share/gnome-shell/extensions/$LEGACY_PSR_UUID"
 SCHEMAS_USER_DIR="$HOME/.local/share/glib-2.0/schemas"
 
 echo "================================================================="
-echo "  CamTone 설치 (v0.1.10)$([[ "$DEV_MODE" == true ]] && echo ' [--dev: 심볼릭 링크 모드]')"
+echo "  CamTone 설치 (v0.1.11)$([[ "$DEV_MODE" == true ]] && echo ' [--dev: 심볼릭 링크 모드]')"
 echo "================================================================="
 echo ""
 
@@ -116,6 +118,8 @@ systemctl --user stop "$SERVICE_NAME" 2>/dev/null || true
 systemctl --user disable "$SERVICE_NAME" 2>/dev/null || true
 gnome-extensions disable "$LEGACY_PSR_UUID" 2>/dev/null || true
 rm -rf "$LEGACY_EXT_DIR"
+gnome-extensions disable "$PREV_EXTENSION_UUID" 2>/dev/null || true
+rm -rf "$HOME/.local/share/gnome-shell/extensions/$PREV_EXTENSION_UUID"
 
 # 이전 이름 설치물 정리와 설정 이전
 if [[ -e "$OLD_LAUNCHER" || -d "$HOME/.local/share/gnome-shell/extensions/$OLD_EXTENSION_UUID" ]]; then
@@ -217,7 +221,7 @@ info "유닛: $UNIT_PATH"
 
 # 6. 확장 활성화
 step "6/7: GNOME Shell 확장 등록..."
-EXT_UUID="$EXTENSION_UUID" LEGACY_UUID="$LEGACY_PSR_UUID" OLD_UUID="$OLD_EXTENSION_UUID" python3 - <<'PY' \
+EXT_UUID="$EXTENSION_UUID" LEGACY_UUID="$LEGACY_PSR_UUID" OLD_UUID="$OLD_EXTENSION_UUID" PREV_UUID="$PREV_EXTENSION_UUID" python3 - <<'PY' \
     || warn "확장 목록을 자동으로 갱신하지 못했습니다. 확장 앱에서 직접 켜 주세요."
 import os
 import sys
@@ -229,6 +233,7 @@ from gi.repository import Gio
 ext_uuid = os.environ["EXT_UUID"]
 legacy_uuid = os.environ["LEGACY_UUID"]
 old_uuid = os.environ["OLD_UUID"]
+prev_uuid = os.environ["PREV_UUID"]
 
 source = Gio.SettingsSchemaSource.get_default()
 if source is None or source.lookup("org.gnome.shell", True) is None:
@@ -241,7 +246,7 @@ if settings.get_boolean("disable-user-extensions"):
     print("[INFO] 사용자 확장 전체 스위치를 켰습니다 (disable-user-extensions = false).")
 
 before = list(settings.get_strv("enabled-extensions"))
-after = [u for u in before if u not in (legacy_uuid, old_uuid)]
+after = [u for u in before if u not in (legacy_uuid, old_uuid, prev_uuid)]
 if ext_uuid not in after:
     after.append(ext_uuid)
 if after != before:
@@ -256,7 +261,7 @@ gnome-extensions enable "$EXTENSION_UUID" 2>/dev/null || true
 step "7/7: 완료."
 echo ""
 info "================================================================="
-info " CamTone v0.1.10 설치가 끝났습니다."
+info " CamTone v0.1.11 설치가 끝났습니다."
 info "================================================================="
 echo "다음 단계:"
 echo "  1. Wayland에서는 로그아웃 후 다시 로그인해야 새 확장이 로드됩니다."

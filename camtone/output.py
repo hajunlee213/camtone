@@ -11,7 +11,7 @@ from gi.repository import Gio, GLib
 _BACKLIGHT_ROOT = Path("/sys/class/backlight")
 _TYPE_PRIORITY = {"raw": 0, "platform": 1, "firmware": 2}
 _COLOR_SCHEMA = "org.gnome.settings-daemon.plugins.color"
-# GNOME Shell's own brightness manager (GNOME 49+). See docs/v0.1.8-plan.md §1.
+# GNOME Shell's own brightness manager (GNOME 49+).
 _SHELL_BUS = "org.gnome.Shell.Brightness"
 _SHELL_PATH = "/org/gnome/Shell/Brightness"
 _SHELL_IFACE = "org.gnome.Shell.Brightness"

@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# CamTone 제거 스크립트 (v0.1.10)
+# CamTone 제거 스크립트 (v0.1.11)
 #
 # 순서: 서비스 정지 → Night Light 복구 → 확장 비활성화 → 파일·dconf 설정 삭제.
 # 저장소 자체는 지우지 않는다.
@@ -17,7 +17,8 @@ warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
 
 : "${HOME:?HOME 환경 변수가 설정되어 있지 않습니다}"
 
-EXTENSION_UUID="camtone@hajun.github.io"
+EXTENSION_UUID="camtone@hajunlee213.github.io"
+PREV_EXTENSION_UUID="camtone@hajun.github.io"  # v0.1.10의 uuid
 LEGACY_PSR_UUID="webcam-als-rgb-psr@hajun.github.io"
 SERVICE_NAME="camtone.service"
 SCHEMA_FILE="org.gnome.shell.extensions.camtone.gschema.xml"
@@ -25,7 +26,7 @@ SCHEMA_FILE="org.gnome.shell.extensions.camtone.gschema.xml"
 OLD_EXTENSION_UUID="webcam-als-rgb@hajun.github.io"
 OLD_SERVICE_NAME="webcam-als-rgb.service"
 OLD_SCHEMA_FILE="org.gnome.shell.extensions.webcam-als-rgb.gschema.xml"
-OLD_DESKTOP_NAME="camtone-prefs.desktop"
+OLD_DESKTOP_NAME="webcam-als-rgb-prefs.desktop"
 STATE_ROOT="${XDG_STATE_HOME:-$HOME/.local/state}"
 
 DATA_DIR="$HOME/.local/share/camtone"
@@ -40,7 +41,7 @@ APPS_DIR="$HOME/.local/share/applications"
 DESKTOP_NAME="camtone-prefs.desktop"
 
 echo "================================================================="
-echo "             CamTone 제거 (v0.1.10)                           "
+echo "             CamTone 제거 (v0.1.11)                           "
 echo "================================================================="
 
 # 1. 서비스 정지: 데몬은 SIGTERM을 받으면 Night Light를 원래 값으로 되돌리고 종료한다.
@@ -65,6 +66,7 @@ step "3/5: GNOME Shell 확장 비활성화..."
 gnome-extensions disable "$EXTENSION_UUID" 2>/dev/null || true
 gnome-extensions disable "$LEGACY_PSR_UUID" 2>/dev/null || true
 gnome-extensions disable "$OLD_EXTENSION_UUID" 2>/dev/null || true
+gnome-extensions disable "$PREV_EXTENSION_UUID" 2>/dev/null || true
 
 # 4. 설치된 파일 삭제 (dev 모드에서 생긴 심볼릭 링크는 링크만 지워지고 저장소는 남는다)
 step "4/5: 설치된 파일 삭제..."
@@ -75,6 +77,7 @@ systemctl --user daemon-reload 2>/dev/null || true
 rm -rf "$EXT_DIR"
 rm -rf "$LEGACY_EXT_DIR"
 rm -rf "$HOME/.local/share/gnome-shell/extensions/$OLD_EXTENSION_UUID"
+rm -rf "$HOME/.local/share/gnome-shell/extensions/$PREV_EXTENSION_UUID"
 rm -f "$SCHEMAS_USER_DIR/$SCHEMA_FILE" "$SCHEMAS_USER_DIR/$OLD_SCHEMA_FILE"
 rm -f "$APPS_DIR/$DESKTOP_NAME" "$APPS_DIR/$OLD_DESKTOP_NAME"
 if command -v update-desktop-database >/dev/null 2>&1; then
