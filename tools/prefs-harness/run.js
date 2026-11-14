@@ -33,7 +33,7 @@ app.connect('activate', () => {
 
             const toast = undoToast('undo check', () => fail('undo callback ran'));
             if (toast.get_timeout() !== 10) fail(`toast timeout expected 10, got ${toast.get_timeout()}`);
-            if (toast.get_button_label() !== '되돌리기') fail(`toast button label is ${toast.get_button_label()}`);
+            if (toast.get_button_label() !== 'Undo') fail(`toast button label is ${toast.get_button_label()}`);
             win.add_toast(toast);
             print('DIALOGS_OK');
         } catch (e) {

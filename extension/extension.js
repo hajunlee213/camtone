@@ -9,6 +9,12 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import {QuickMenuToggle, SystemIndicator} from 'resource:///org/gnome/shell/ui/quickSettings.js';
 
+// Minimal %s substitution so translators can reorder the whole sentence (no string concatenation).
+const sprintf = (fmt, ...args) => {
+    let i = 0;
+    return fmt.replace(/%s/g, () => String(args[i++]));
+};
+
 // Contract with the Python daemon (INT-07) and the systemd unit (INT-06).
 const UNIT_NAME = 'webcam-als-rgb.service';
 const DAEMON_NAME = 'io.github.hajunlee213.WebcamAlsRgb';
@@ -292,16 +298,16 @@ class WebcamAlsRgbToggle extends QuickMenuToggle {
         this.menu.setHeader('night-light-symbolic', _('Webcam ALS RGB'));
 
         // Warning line for conflicting extensions (hidden unless one is enabled)
-        this._warnItem = new PopupMenu.PopupMenuItem(_('충돌 가능'), {reactive: false, can_focus: false});
+        this._warnItem = new PopupMenu.PopupMenuItem(_('Possible conflict'), {reactive: false, can_focus: false});
         this._warnItem.label.add_style_class_name('webcam-als-rgb-warning');
         this.menu.addMenuItem(this._warnItem);
 
         // Automatic adjustment switches (keys are read from the same GSettings schema as the daemon)
-        this._autoBrightnessItem = new PopupMenu.PopupSwitchMenuItem(_('자동 밝기'), false);
+        this._autoBrightnessItem = new PopupMenu.PopupSwitchMenuItem(_('Auto brightness'), false);
         this._settings.bind('auto-brightness', this._autoBrightnessItem, 'state', Gio.SettingsBindFlags.DEFAULT);
         this.menu.addMenuItem(this._autoBrightnessItem);
 
-        this._autoCctItem = new PopupMenu.PopupSwitchMenuItem(_('자동 색온도'), false);
+        this._autoCctItem = new PopupMenu.PopupSwitchMenuItem(_('Auto color temperature'), false);
         this._settings.bind('auto-color-temp', this._autoCctItem, 'state', Gio.SettingsBindFlags.DEFAULT);
         this.menu.addMenuItem(this._autoCctItem);
 
@@ -312,12 +318,12 @@ class WebcamAlsRgbToggle extends QuickMenuToggle {
         this._infoItem.label.add_style_class_name('webcam-als-rgb-info');
         this.menu.addMenuItem(this._infoItem);
 
-        this._measureItem = new PopupMenu.PopupMenuItem(_('지금 측정'));
+        this._measureItem = new PopupMenu.PopupMenuItem(_('Measure now'));
         this._measureItem.connect('activate', () => this._measureNow());
         this.menu.addMenuItem(this._measureItem);
 
         // Preferences only exists from v0.1.7 on; hide the entry when prefs.js is absent.
-        this._prefsItem = new PopupMenu.PopupMenuItem(_('설정…'));
+        this._prefsItem = new PopupMenu.PopupMenuItem(_('Settings…'));
         this._prefsItem.connect('activate', () => {
             this._extension.openPreferences();
             Main.panel.closeQuickSettings();
@@ -350,7 +356,7 @@ class WebcamAlsRgbToggle extends QuickMenuToggle {
         });
         this._warnItem.visible = names.length > 0;
         if (names.length > 0)
-            this._warnItem.label.text = `${_('충돌 가능한 확장이 켜져 있음')}: ${names.join(', ')}`;
+            this._warnItem.label.text = `${_('A possibly conflicting extension is enabled')}: ${names.join(', ')}`;
     }
 
     // The daemon may be absent (not installed or not running). The proxy is created with
@@ -404,23 +410,23 @@ class WebcamAlsRgbToggle extends QuickMenuToggle {
         case 'running': {
             const parts = [];
             if (this._settings.get_boolean('auto-brightness'))
-                parts.push(`${_('밝기')} ${this._prop('TargetBrightness') ?? '--'}%`);
+                parts.push(`${_('Brightness')} ${this._prop('TargetBrightness') ?? '--'}%`);
             if (this._settings.get_boolean('auto-color-temp'))
                 parts.push(`${this._prop('TargetCct') ?? '----'}K`);
-            return parts.length > 0 ? parts.join(' · ') : _('측정 중');
+            return parts.length > 0 ? parts.join(' · ') : _('Measuring');
         }
         case 'paused-locked':
-            return _('잠김');
+            return _('Locked');
         case 'paused-sleep':
-            return _('절전 중');
+            return _('Suspended');
         case 'paused-battery':
-            return _('배터리 절약');
+            return _('Battery saving');
         case 'paused-display-off':
-            return _('화면 꺼짐');
+            return _('Display off');
         case 'camera-busy':
-            return _('카메라 사용 중');
+            return _('Camera in use');
         default:
-            return _('대기 중');
+            return _('Idle');
         }
     }
 
@@ -429,11 +435,11 @@ class WebcamAlsRgbToggle extends QuickMenuToggle {
         const cct = this._prop('AmbientCct');
         const last = this._prop('LastMeasured');
         if (!owner || ev === null || cct === null || !last)
-            return `${_('주변')}: ${_('측정 전')}`;
+            return `${_('Ambient')}: ${_('Not measured yet')}`;
 
         const ago = Math.max(0, Math.round(Date.now() / 1000 - last));
-        const agoText = ago < 60 ? `${ago}${_('초 전')}` : `${Math.floor(ago / 60)}${_('분 전')}`;
-        return `${_('주변')}: ev ${ev.toFixed(1)} · ${Math.round(cct)}K · ${agoText}`;
+        const agoText = ago < 60 ? sprintf(_('%s s ago'), ago) : sprintf(_('%s min ago'), Math.floor(ago / 60));
+        return `${_('Ambient')}: ev ${ev.toFixed(1)} · ${Math.round(cct)}K · ${agoText}`;
     }
 
     _refresh() {
@@ -445,14 +451,14 @@ class WebcamAlsRgbToggle extends QuickMenuToggle {
 
         let subtitle;
         if (!enabled)
-            subtitle = _('꺼짐');
+            subtitle = _('Off');
         else if (this._unit.error)
-            subtitle = _('설치 오류');
+            subtitle = _('Install error');
         else if (!owner) {
             if (this._unit.activeState === 'failed')
-                subtitle = _('오류');
+                subtitle = _('Error');
             else
-                subtitle = this._unit.pending ? _('시작 중') : _('대기 중');
+                subtitle = this._unit.pending ? _('Starting') : _('Idle');
         }
         else
             subtitle = this._runningSubtitle(this._prop('State'));

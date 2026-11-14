@@ -130,6 +130,8 @@ info "실행 파일: $LAUNCHER"
 
 # 4. GNOME Shell 확장과 GSettings 스키마
 step "4/7: GNOME Shell 확장과 GSettings 스키마 설치..."
+# 번역(.po)을 .mo로 컴파일한다. gettext 도구는 필요 없다.
+python3 "$SCRIPT_DIR/tools/build_locale.py" compile >/dev/null
 rm -rf "$EXT_DIR"
 mkdir -p "$EXT_DIR"
 if [[ "$DEV_MODE" == true ]]; then
