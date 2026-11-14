@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# webcam-as-als-rgb 제거 스크립트 (v0.1.8)
+# webcam-as-als-rgb 제거 스크립트 (v0.1.9)
 #
 # 순서: 서비스 정지 → Night Light 복구 → 확장 비활성화 → 파일·dconf 설정 삭제.
 # 저장소 자체는 지우지 않는다.
@@ -33,7 +33,7 @@ APPS_DIR="$HOME/.local/share/applications"
 DESKTOP_NAME="webcam-als-rgb-prefs.desktop"
 
 echo "================================================================="
-echo "             webcam-as-als-rgb 제거 (v0.1.8)                     "
+echo "             webcam-as-als-rgb 제거 (v0.1.9)                     "
 echo "================================================================="
 
 # 1. 서비스 정지: 데몬은 SIGTERM을 받으면 Night Light를 원래 값으로 되돌리고 종료한다.
