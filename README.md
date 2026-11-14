@@ -1,6 +1,8 @@
-# webcam-as-als-rgb
+# CamTone
 
 노트북 웹캠(`/dev/video0`)을 **주변광 조도 센서(ALS) + 색온도 센서(RGB/CCT)**처럼 쓰고, GNOME Wayland에서 화면 밝기와 Night Light 색온도를 주변 환경에 맞춰 자동으로 조절하는 프로젝트입니다. 색온도 센서가 없는 노트북을 위한 소프트웨어 대체 구현입니다.
+
+> 이전 이름은 `webcam-as-als-rgb`입니다. v0.1.10부터 CamTone으로 바뀌었고, `./install.sh`가 이전 설치를 정리하고 설정을 새 이름으로 옮깁니다.
 
 v0.1.6부터 Python 데몬과 GNOME Shell 확장이 하나로 합쳐졌습니다. 퀵 설정의 토글 하나로 켜고 끄며, 끄면 프로세스가 완전히 사라지고 Night Light가 원래 값으로 돌아갑니다.
 
@@ -49,7 +51,7 @@ sudo apt install python3-numpy python3-gi gir1.2-glib-2.0 v4l-utils psmisc libgl
 ### 3.1 설치
 
 ```bash
-cd /path/to/webcam-as-als-rgb
+cd /path/to/camtone
 ./install.sh
 ```
 
@@ -62,17 +64,17 @@ cd /path/to/webcam-as-als-rgb
 
 | 항목 | 위치 |
 | :--- | :--- |
-| Python 패키지 | `~/.local/share/webcam-als-rgb/webcam_als_rgb/` |
-| 실행 파일 | `~/.local/bin/webcam-als-rgb` (패키지를 `python3 -m webcam_als_rgb`로 실행하는 셸 스크립트) |
-| systemd 사용자 유닛 | `~/.config/systemd/user/webcam-als-rgb.service` |
-| GNOME Shell 확장 | `~/.local/share/gnome-shell/extensions/webcam-als-rgb@hajun.github.io/` |
+| Python 패키지 | `~/.local/share/camtone/camtone/` |
+| 실행 파일 | `~/.local/bin/camtone` (패키지를 `python3 -m camtone`로 실행하는 셸 스크립트) |
+| systemd 사용자 유닛 | `~/.config/systemd/user/camtone.service` |
+| GNOME Shell 확장 | `~/.local/share/gnome-shell/extensions/camtone@hajun.github.io/` |
 | GSettings 스키마 | 확장 폴더의 `schemas/` 와 `~/.local/share/glib-2.0/schemas/` 두 곳 |
 
 설치 후 **Wayland에서는 로그아웃 후 다시 로그인해야** 새 확장이 로드됩니다.
 
 > 서비스는 **로그인 시 자동으로 뜨지 않습니다.** 유닛에 `[Install]` 섹션이 없고 `systemctl --user enable`을 하지 않기 때문입니다. 켜고 끄는 일은 확장의 토글이 맡습니다.
 
-이전 버전(`webcam-als-rgb-psr@hajun.github.io` 확장, 수동으로 만든 유닛)이 있으면 설치 중에 정지·비활성화하고 제거합니다.
+이전 버전(`camtone-psr@hajun.github.io` 확장, 수동으로 만든 유닛)이 있으면 설치 중에 정지·비활성화하고 제거합니다.
 
 ### 3.2 개발용 설치 (`--dev`)
 
@@ -95,8 +97,8 @@ cd /path/to/webcam-as-als-rgb
 1. 서비스 정지 및 자동 시작 해제 → 데몬이 종료 신호를 받고 Night Light를 원래 값으로 되돌립니다.
 2. 남은 Night Light 상태가 있으면 `--restore-night-light`로 한 번 더 복구합니다.
 3. 확장 비활성화.
-4. 설치 파일(실행 파일, 패키지, 유닛, 확장, 스키마)과 `$XDG_STATE_HOME/webcam-as-als-rgb/` 상태 파일 삭제.
-5. `dconf`에 저장된 `/org/gnome/shell/extensions/webcam-als-rgb/` 값 초기화.
+4. 설치 파일(실행 파일, 패키지, 유닛, 확장, 스키마)과 `$XDG_STATE_HOME/camtone/` 상태 파일 삭제.
+5. `dconf`에 저장된 `/org/gnome/shell/extensions/camtone/` 값 초기화.
 
 저장소 파일은 지우지 않습니다.
 
@@ -150,7 +152,7 @@ GNOME 상단 퀵 설정의 토글이 이 프로젝트의 **유일한 on/off 스�
 
 ### 4.4 설정 창 (v0.1.7)
 
-퀵 설정 토글 메뉴의 **설정…**, 또는 앱 목록의 **Webcam ALS RGB 설정**으로 엽니다. 모든 값은 GSettings(`org.gnome.shell.extensions.webcam-als-rgb`)에 바로 저장되고, 데몬은 바뀐 값을 다음 회차부터 적용합니다. 범위는 스키마에 정의된 값을 따릅니다.
+퀵 설정 토글 메뉴의 **설정…**, 또는 앱 목록의 **CamTone 설정**으로 엽니다. 모든 값은 GSettings(`org.gnome.shell.extensions.camtone`)에 바로 저장되고, 데몬은 바뀐 값을 다음 회차부터 적용합니다. 범위는 스키마에 정의된 값을 따릅니다.
 
 | 쪽 | 내용 |
 | :--- | :--- |
@@ -177,27 +179,27 @@ GNOME 상단 퀵 설정의 토글이 이 프로젝트의 **유일한 on/off 스�
 
 ```bash
 # 실시간 로그
-journalctl --user -u webcam-als-rgb -f
+journalctl --user -u camtone -f
 
 # 오늘 로그 전체
-journalctl --user -u webcam-als-rgb --since today
+journalctl --user -u camtone --since today
 
 # 서비스 상태
-systemctl --user status webcam-als-rgb.service
+systemctl --user status camtone.service
 ```
 
-D-Bus 인터페이스(세션 버스 `io.github.hajunlee213.WebcamAlsRgb`)로 현재 상태를 확인할 수도 있습니다.
+D-Bus 인터페이스(세션 버스 `io.github.hajunlee213.CamTone`)로 현재 상태를 확인할 수도 있습니다.
 
 ```bash
 gdbus introspect --session \
-  --dest io.github.hajunlee213.WebcamAlsRgb \
-  --object-path /io/github/hajunlee213/WebcamAlsRgb
+  --dest io.github.hajunlee213.CamTone \
+  --object-path /io/github/hajunlee213/CamTone
 
 # 지금 바로 측정
 gdbus call --session \
-  --dest io.github.hajunlee213.WebcamAlsRgb \
-  --object-path /io/github/hajunlee213/WebcamAlsRgb \
-  --method io.github.hajunlee213.WebcamAlsRgb.MeasureNow
+  --dest io.github.hajunlee213.CamTone \
+  --object-path /io/github/hajunlee213/CamTone \
+  --method io.github.hajunlee213.CamTone.MeasureNow
 ```
 
 주요 속성은 `State`(`running`, `paused-locked`, `paused-sleep`, `paused-battery`, `camera-busy`), `EvLog`, `AmbientCct`, `TargetBrightness`, `TargetCct`, `LastMeasured`, `NextMeasureIn`, `BrightnessBackend`(`shell`, `logind`, `none`)입니다.
@@ -208,11 +210,11 @@ gdbus call --session \
 
 ### 6.1 GSettings (사용자 설정의 단일 출처)
 
-설정은 GSettings 스키마 `org.gnome.shell.extensions.webcam-als-rgb`에 있습니다. 바꾸면 데몬이 재시작 없이 바로 반영합니다.
+설정은 GSettings 스키마 `org.gnome.shell.extensions.camtone`에 있습니다. 바꾸면 데몬이 재시작 없이 바로 반영합니다.
 
 ```bash
-gsettings set org.gnome.shell.extensions.webcam-als-rgb interval-ac-sec 30
-gsettings get org.gnome.shell.extensions.webcam-als-rgb brightness-max-pct
+gsettings set org.gnome.shell.extensions.camtone interval-ac-sec 30
+gsettings get org.gnome.shell.extensions.camtone brightness-max-pct
 ```
 
 | 키 | 기본값 | 설명 |
@@ -244,7 +246,7 @@ gsettings get org.gnome.shell.extensions.webcam-als-rgb brightness-max-pct
 
 ```bash
 cp config.example.json config.json
-webcam-als-rgb --config config.json --once --dry-run
+camtone --config config.json --once --dry-run
 ```
 
 | 섹션 | 키 | 기본값 | 설명 |
@@ -274,31 +276,31 @@ Intel PSR2(Panel Self Refresh) 패널에서는 화면이 정지해 있으면 Nig
 
 ## 8. 개발 명령
 
-모든 명령은 설치된 `webcam-als-rgb` 또는 저장소에서 `python3 -m webcam_als_rgb`로 실행할 수 있습니다.
+모든 명령은 설치된 `camtone` 또는 저장소에서 `python3 -m camtone`로 실행할 수 있습니다.
 
 ```bash
 # 측정만 하고 결과(ev, 색온도, 목표 밝기·색온도)를 출력합니다. 화면 설정은 바꾸지 않습니다.
-webcam-als-rgb --once --dry-run
+camtone --once --dry-run
 
 # 1회 측정 후 실제로 적용합니다.
-webcam-als-rgb --once
+camtone --once
 
 # 고정 노출 스윕 진단 (화면 설정과 Night Light를 바꾸지 않음)
-webcam-als-rgb --sweep
-webcam-als-rgb --sweep --sweep-order desc --sweep-exposures 200,400,800,1200,1600,2400,3200,4800
+camtone --sweep
+camtone --sweep --sweep-order desc --sweep-exposures 200,400,800,1200,1600,2400,3200,4800
 
 # 비정상 종료 등으로 남은 Night Light 상태를 원래 값으로 복구
-webcam-als-rgb --restore-night-light
+camtone --restore-night-light
 
 # 저장소에서 직접 실행 (설치 없이)
-python3 -m webcam_als_rgb --once --dry-run
+python3 -m camtone --once --dry-run
 ```
 
-인자 없이 `webcam-als-rgb`를 실행하면 **서비스 모드**(데몬)로 뜹니다. 보통은 직접 실행할 일이 없고, 확장 토글이 systemd로 시작합니다. 서비스가 도는 중에 개발 명령으로 같은 카메라를 열면 측정이 실패하거나 서로 간섭할 수 있으므로, 개발 명령은 서비스를 멈춘 뒤에 실행하세요.
+인자 없이 `camtone`를 실행하면 **서비스 모드**(데몬)로 뜹니다. 보통은 직접 실행할 일이 없고, 확장 토글이 systemd로 시작합니다. 서비스가 도는 중에 개발 명령으로 같은 카메라를 열면 측정이 실패하거나 서로 간섭할 수 있으므로, 개발 명령은 서비스를 멈춘 뒤에 실행하세요.
 
 ```bash
-systemctl --user stop webcam-als-rgb.service
-webcam-als-rgb --once --dry-run
+systemctl --user stop camtone.service
+camtone --once --dry-run
 ```
 
 ---
@@ -309,15 +311,15 @@ webcam-als-rgb --once --dry-run
 
 1. **선형 구간과 노출 상한 확인 (`--sweep`)**
    ```bash
-   webcam-als-rgb --sweep --sweep-order asc
-   webcam-als-rgb --sweep --sweep-order desc
+   camtone --sweep --sweep-order asc
+   camtone --sweep --sweep-order desc
    ```
    `Linear luma range (est.)`와 `Effective exposure cap (est.)`, `ev_log` 편차(`PASS` 기준 `<= 0.30`)를 확인합니다. `Anomalous exposures`가 나오면 `sensor.exposure_blacklist`에 추가하세요.
 2. **센서 파라미터 조정 (`gamma`, `target_luma_*`, `max_exposure`)**
    * `--sweep`에서 선형 구간의 `ev_log_gamma1`이 일정하면 `gamma: 1.0`을 유지하고, 체계적인 기울기가 보이면 `gamma`를 조정합니다.
    * `target_luma_*`는 선형 구간 안에 두고, `max_exposure`는 유효 노출 상한보다 약간 낮게 둡니다.
 3. **밝기 매핑 범위 (`ev-log-min` / `ev-log-max`)**
-   * 어두운 방과 밝은 창가에서 `webcam-als-rgb --once --dry-run`으로 `ev_log`를 측정한 뒤, `gsettings set org.gnome.shell.extensions.webcam-als-rgb ev-log-min <값>`처럼 `ev-log-min` / `ev-log-max`에 넣습니다.
+   * 어두운 방과 밝은 창가에서 `camtone --once --dry-run`으로 `ev_log`를 측정한 뒤, `gsettings set org.gnome.shell.extensions.camtone ev-log-min <값>`처럼 `ev-log-min` / `ev-log-max`에 넣습니다.
 4. **색온도 보정 (`cct-calibration`)**
    * 알려진 색온도의 조명(예: 2700K 전구색, 6500K 주광색)에서 `--once --dry-run`으로 `amb_cct`를 측정하고, `[[측정값, 실제값], ...]` 목록으로 `cct-calibration`에 넣습니다.
 
@@ -330,3 +332,9 @@ webcam-als-rgb --once --dry-run
 * **Night Light 슬라이더 충돌**: `night-light-slider-updated` 같은 다른 확장이나 GNOME 설정 슬라이더로 색온도를 직접 바꾸면, 다음 측정에서 이 프로젝트가 덮어씁니다. 자동 색온도를 끄려면 `auto-color-temp`를 끄세요.
 * **카메라 점유**: 다른 앱이 웹캠을 쓰는 동안은 측정을 건너뜁니다.
 * **센서 결함**: 웹캠 펌웨어에 따라 특정 노출에서 값이 급락할 수 있습니다. `exposure_blacklist`로 회피합니다.
+
+---
+
+## 11. 라이선스
+
+[GNU GPL v3.0](LICENSE)(GPL-3.0-or-later). 이 프로젝트는 같은 라이선스의 [gnome-adaptive-tone](https://github.com/hajunlee213/gnome-adaptive-tone)에서 일부 코드(고정 야간 스케줄, 설정 창 구조, PSR 갱신기)를 가져왔습니다.

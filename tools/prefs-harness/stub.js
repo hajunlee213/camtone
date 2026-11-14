@@ -3,5 +3,5 @@ export const gettext = s => s;
 export class ExtensionPreferences {
     constructor() { this.metadata = {version: 3}; }
     initTranslations() {}
-    getSettings() { return new Gio.Settings({schema_id: 'org.gnome.shell.extensions.webcam-als-rgb'}); }
+    getSettings() { return new Gio.Settings({schema_id: 'org.gnome.shell.extensions.camtone'}); }
 }

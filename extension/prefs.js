@@ -2,7 +2,7 @@
 // one SpinRow/SwitchRow per GSettings key, and a per-row reset button.
 //
 // Every value is bound to the existing schema keys (extension/schemas/...). Ranges come from the
-// schema itself. The calibration helpers talk to the daemon over D-Bus (io.github.hajunlee213.WebcamAlsRgb).
+// schema itself. The calibration helpers talk to the daemon over D-Bus (io.github.hajunlee213.CamTone).
 import Adw from 'gi://Adw';
 import Gdk from 'gi://Gdk';
 import Gio from 'gi://Gio';
@@ -17,11 +17,11 @@ const sprintf = (fmt, ...args) => {
     return fmt.replace(/%s/g, () => String(args[i++]));
 };
 
-const DAEMON_NAME = 'io.github.hajunlee213.WebcamAlsRgb';
-const DAEMON_PATH = '/io/github/hajunlee213/WebcamAlsRgb';
-const DAEMON_IFACE = 'io.github.hajunlee213.WebcamAlsRgb';
-const JOURNAL_CMD = 'journalctl --user -u webcam-als-rgb -f';
-const REPO_URL = 'https://github.com/hajunlee213/webcam-as-als-rgb';
+const DAEMON_NAME = 'io.github.hajunlee213.CamTone';
+const DAEMON_PATH = '/io/github/hajunlee213/CamTone';
+const DAEMON_IFACE = 'io.github.hajunlee213.CamTone';
+const JOURNAL_CMD = 'journalctl --user -u camtone -f';
+const REPO_URL = 'https://github.com/hajunlee213/camtone';
 
 // ---- daemon D-Bus helpers ------------------------------------------------
 
@@ -152,7 +152,7 @@ export function undoToast(title, onUndo) {
     return toast;
 }
 
-export default class WebcamAlsRgbPreferences extends ExtensionPreferences {
+export default class CamTonePreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         this.initTranslations();
 

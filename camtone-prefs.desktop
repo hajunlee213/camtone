@@ -1,9 +1,9 @@
 [Desktop Entry]
-Name=Webcam ALS RGB Settings
-Name[ko]=Webcam ALS RGB 설정
+Name=CamTone Settings
+Name[ko]=CamTone 설정
 Comment=Configure brightness and color temperature from the webcam sensor
 Comment[ko]=웹캠 센서 기반 화면 밝기와 색온도 설정
-Exec=gnome-extensions prefs webcam-als-rgb@hajun.github.io
+Exec=gnome-extensions prefs camtone@hajun.github.io
 Icon=night-light-symbolic
 Terminal=false
 Type=Application

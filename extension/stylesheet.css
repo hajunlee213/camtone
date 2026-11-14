@@ -1,11 +1,11 @@
-/* Webcam ALS RGB Quick Settings styles */
+/* CamTone Quick Settings styles */
 
-.webcam-als-rgb-info {
+.camtone-info {
     font-size: 0.9em;
     opacity: 0.85;
 }
 
-.webcam-als-rgb-warning {
+.camtone-warning {
     color: #f6d32d;
     font-size: 0.9em;
 }

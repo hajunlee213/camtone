@@ -16,10 +16,10 @@ const sprintf = (fmt, ...args) => {
 };
 
 // Contract with the Python daemon (INT-07) and the systemd unit (INT-06).
-const UNIT_NAME = 'webcam-als-rgb.service';
-const DAEMON_NAME = 'io.github.hajunlee213.WebcamAlsRgb';
-const DAEMON_PATH = '/io/github/hajunlee213/WebcamAlsRgb';
-const DAEMON_IFACE = 'io.github.hajunlee213.WebcamAlsRgb';
+const UNIT_NAME = 'camtone.service';
+const DAEMON_NAME = 'io.github.hajunlee213.CamTone';
+const DAEMON_PATH = '/io/github/hajunlee213/CamTone';
+const DAEMON_IFACE = 'io.github.hajunlee213.CamTone';
 
 const SYSTEMD_NAME = 'org.freedesktop.systemd1';
 const SYSTEMD_PATH = '/org/freedesktop/systemd1';
@@ -74,7 +74,7 @@ class UnitController {
                     [path] = connection.call_finish(res).deepUnpack();
                 } catch (e) {
                     if (!this._cancellable.is_cancelled())
-                        console.error(`webcam-als-rgb: LoadUnit ${UNIT_NAME} failed: ${e.message}`);
+                        console.error(`camtone: LoadUnit ${UNIT_NAME} failed: ${e.message}`);
                     return;
                 }
                 if (this._cancellable.is_cancelled())
@@ -93,7 +93,7 @@ class UnitController {
                             proxy = Gio.DBusProxy.new_for_bus_finish(proxyRes);
                         } catch (e) {
                             if (!this._cancellable.is_cancelled())
-                                console.error(`webcam-als-rgb: cannot watch ${UNIT_NAME}: ${e.message}`);
+                                console.error(`camtone: cannot watch ${UNIT_NAME}: ${e.message}`);
                             return;
                         }
                         this._unitProxy = proxy;
@@ -142,7 +142,7 @@ class UnitController {
                     connection.call_finish(res);
                 } catch (e) {
                     error = e;
-                    console.error(`webcam-als-rgb: ${method} ${UNIT_NAME} failed: ${e.message}`);
+                    console.error(`camtone: ${method} ${UNIT_NAME} failed: ${e.message}`);
                 }
                 if (isStart) {
                     this.pending = false;
@@ -190,7 +190,7 @@ class PsrRefreshController {
 
         // Create invisible full-screen actor to guarantee Mutter KMS Full Damage
         this._fullDamageActor = new St.Widget({
-            name: 'webcam-als-rgb-psr-refresher',
+            name: 'camtone-psr-refresher',
             reactive: false,
             opacity: 0,
             visible: false,
@@ -275,11 +275,11 @@ class PsrRefreshController {
     }
 }
 
-const WebcamAlsRgbToggle = GObject.registerClass(
-class WebcamAlsRgbToggle extends QuickMenuToggle {
+const CamToneToggle = GObject.registerClass(
+class CamToneToggle extends QuickMenuToggle {
     _init(extension, settings, unit) {
         super._init({
-            title: _('Webcam ALS RGB'),
+            title: _('CamTone'),
             iconName: 'night-light-symbolic',
             toggleMode: true,
         });
@@ -295,11 +295,11 @@ class WebcamAlsRgbToggle extends QuickMenuToggle {
         // Quick Settings toggle is the 'enabled' key; the extension starts/stops the unit on change.
         this._settings.bind('enabled', this, 'checked', Gio.SettingsBindFlags.DEFAULT);
 
-        this.menu.setHeader('night-light-symbolic', _('Webcam ALS RGB'));
+        this.menu.setHeader('night-light-symbolic', _('CamTone'));
 
         // Warning line for conflicting extensions (hidden unless one is enabled)
         this._warnItem = new PopupMenu.PopupMenuItem(_('Possible conflict'), {reactive: false, can_focus: false});
-        this._warnItem.label.add_style_class_name('webcam-als-rgb-warning');
+        this._warnItem.label.add_style_class_name('camtone-warning');
         this.menu.addMenuItem(this._warnItem);
 
         // Automatic adjustment switches (keys are read from the same GSettings schema as the daemon)
@@ -315,7 +315,7 @@ class WebcamAlsRgbToggle extends QuickMenuToggle {
 
         // Last measurement (read-only)
         this._infoItem = new PopupMenu.PopupMenuItem('', {reactive: false, can_focus: false});
-        this._infoItem.label.add_style_class_name('webcam-als-rgb-info');
+        this._infoItem.label.add_style_class_name('camtone-info');
         this.menu.addMenuItem(this._infoItem);
 
         this._measureItem = new PopupMenu.PopupMenuItem(_('Measure now'));
@@ -376,7 +376,7 @@ class WebcamAlsRgbToggle extends QuickMenuToggle {
                 try {
                     this._proxy = Gio.DBusProxy.new_for_bus_finish(res);
                 } catch (e) {
-                    console.error(`webcam-als-rgb: cannot create daemon proxy: ${e.message}`);
+                    console.error(`camtone: cannot create daemon proxy: ${e.message}`);
                     return;
                 }
                 this._proxyPropsId = this._proxy.connect('g-properties-changed', () => this._refresh());
@@ -400,7 +400,7 @@ class WebcamAlsRgbToggle extends QuickMenuToggle {
             try {
                 proxy.call_finish(res);
             } catch (e) {
-                console.error(`webcam-als-rgb: MeasureNow failed: ${e.message}`);
+                console.error(`camtone: MeasureNow failed: ${e.message}`);
             }
         });
     }
@@ -504,8 +504,8 @@ class WebcamAlsRgbToggle extends QuickMenuToggle {
     }
 });
 
-const WebcamAlsRgbIndicator = GObject.registerClass(
-class WebcamAlsRgbIndicator extends SystemIndicator {
+const CamToneIndicator = GObject.registerClass(
+class CamToneIndicator extends SystemIndicator {
     _init(extension, settings, unit) {
         super._init();
 
@@ -515,7 +515,7 @@ class WebcamAlsRgbIndicator extends SystemIndicator {
         this._indicator = this._addIndicator();
         this._indicator.icon_name = 'night-light-symbolic';
 
-        this._toggle = new WebcamAlsRgbToggle(extension, settings, unit);
+        this._toggle = new CamToneToggle(extension, settings, unit);
         this.quickSettingsItems.push(this._toggle);
 
         this._indicatorChangedIds = [
@@ -546,13 +546,13 @@ class WebcamAlsRgbIndicator extends SystemIndicator {
     }
 });
 
-export default class WebcamAlsRgbExtension extends Extension {
+export default class CamToneExtension extends Extension {
     enable() {
         this.initTranslations();
 
         this._settings = this.getSettings();
         this._unit = new UnitController(() => this._indicator?.syncState());
-        this._indicator = new WebcamAlsRgbIndicator(this, this._settings, this._unit);
+        this._indicator = new CamToneIndicator(this, this._settings, this._unit);
         Main.panel.statusArea.quickSettings.addExternalIndicator(this._indicator);
         this._unit.watch();
 

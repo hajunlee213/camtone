@@ -1,7 +1,7 @@
 import Adw from 'gi://Adw?version=1';
 import GLib from 'gi://GLib';
 import Prefs, {confirmDialog, undoToast, estimateBrightnessPct} from './prefs.js';
-const app = new Adw.Application({application_id: 'test.webcamals.prefs'});
+const app = new Adw.Application({application_id: 'test.camtone.prefs'});
 const fail = msg => print('HARNESS_ERROR: ' + msg);
 app.connect('activate', () => {
     const win = new Adw.PreferencesWindow({application: app});

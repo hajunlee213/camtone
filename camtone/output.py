@@ -32,7 +32,7 @@ _NIGHT_LIGHT_KEYS = (
 def _default_night_light_state_path() -> Path:
     xdg_state = os.environ.get("XDG_STATE_HOME", "").strip()
     base = Path(xdg_state) if xdg_state else (Path.home() / ".local" / "state")
-    return base / "webcam-as-als-rgb" / "night-light.json"
+    return base / "camtone" / "night-light.json"
 
 
 def _detect_shell_brightness() -> bool:

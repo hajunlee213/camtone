@@ -1,6 +1,6 @@
 """Resident daemon (v0.1.6): GLib main loop, adaptive measurement schedule, power/lock events.
 
-Started by running the package with no mode flag (``webcam-als-rgb`` / ``python3 -m webcam_als_rgb``).
+Started by running the package with no mode flag (``camtone`` / ``python3 -m camtone``).
 The GNOME Shell extension starts and stops it through systemd (INT-06); this module only
 runs the loop.
 
@@ -49,8 +49,8 @@ _CYCLE_ERRORS = (subprocess.CalledProcessError, RuntimeError, OSError, ValueErro
 MUTTER_DISPLAY_NAME = "org.gnome.Mutter.DisplayConfig"
 MUTTER_DISPLAY_PATH = "/org/gnome/Mutter/DisplayConfig"
 
-BUS_NAME = "io.github.hajunlee213.WebcamAlsRgb"
-OBJECT_PATH = "/io/github/hajunlee213/WebcamAlsRgb"
+BUS_NAME = "io.github.hajunlee213.CamTone"
+OBJECT_PATH = "/io/github/hajunlee213/CamTone"
 PAUSED_ERROR = f"{BUS_NAME}.Paused"
 
 # Property name -> D-Bus signature. Read-only; the daemon owns the values.
@@ -762,10 +762,10 @@ def run(config_path: Optional[str], overrides: dict[str, Any], dry_run: bool) ->
     settings = open_settings()
     cfg = load_cfg(settings, config_path, overrides)
     if not cfg["service"]["enabled"]:
-        print("webcam-als-rgb: enabled=false; not starting.")
+        print("camtone: enabled=false; not starting.")
         return 0
     print(
-        f"webcam-als-rgb {__version__} service starting "
+        f"camtone {__version__} service starting "
         f"(pid={os.getpid()}, dry_run={dry_run}, schema={'yes' if settings is not None else 'no'}, "
         f"interval ac={cfg['service']['interval_ac_sec']}s battery={cfg['service']['interval_battery_sec']}s "
         f"max={cfg['service']['interval_max_sec']}s, pause_on_battery={cfg['service']['pause_on_battery']})"

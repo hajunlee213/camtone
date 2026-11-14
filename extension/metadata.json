@@ -1,8 +1,8 @@
 {
-  "name": "Webcam ALS RGB",
-  "description": "Adaptive screen brightness and color temperature from a laptop webcam. Quick Settings toggle controls the webcam-als-rgb daemon.",
-  "uuid": "webcam-als-rgb@hajun.github.io",
-  "url": "https://github.com/hajunlee213/webcam-as-als-rgb",
+  "name": "CamTone",
+  "description": "Adaptive screen brightness and color temperature from a laptop webcam. Quick Settings toggle controls the camtone daemon.",
+  "uuid": "camtone@hajun.github.io",
+  "url": "https://github.com/hajunlee213/camtone",
   "shell-version": [
     "45",
     "46",
@@ -11,8 +11,8 @@
     "49",
     "50"
   ],
-  "settings-schema": "org.gnome.shell.extensions.webcam-als-rgb",
-  "gettext-domain": "webcam-als-rgb",
-  "version": 3,
-  "version-name": "0.1.9"
+  "settings-schema": "org.gnome.shell.extensions.camtone",
+  "gettext-domain": "camtone",
+  "version": 4,
+  "version-name": "0.1.10"
 }

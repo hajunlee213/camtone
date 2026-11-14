@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Extract UI strings and compile translations (v0.1.9). No gettext tools needed.
+"""Extract UI strings and compile translations (v0.1.10). No gettext tools needed.
 
-  tools/build_locale.py extract   # scan extension/*.js for _('...') -> extension/locale/webcam-als-rgb.pot,
+  tools/build_locale.py extract   # scan extension/*.js for _('...') -> extension/locale/camtone.pot,
                                   # and add any missing msgid to each extension/locale/<lang>/LC_MESSAGES/*.po
   tools/build_locale.py compile   # .po -> .mo next to it (what GNOME Shell loads)
 
@@ -18,7 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 EXT = ROOT / "extension"
 LOCALE = EXT / "locale"
-DOMAIN = "webcam-als-rgb"
+DOMAIN = "camtone"
 CALL = re.compile(r"""\b_\((['"])((?:\\.|(?!\1).)*)\1\)""")
 
 
@@ -63,7 +63,7 @@ def parse_po(path: Path) -> dict[str, str]:
 
 
 HEADER = (
-    'Project-Id-Version: webcam-als-rgb\\n'
+    'Project-Id-Version: camtone\\n'
     'Language: {lang}\\n'
     'MIME-Version: 1.0\\n'
     'Content-Type: text/plain; charset=UTF-8\\n'

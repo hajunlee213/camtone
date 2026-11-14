@@ -159,7 +159,7 @@ def run_sweep(sensor: WebcamSensor, exposures_str: str, order: str) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="webcam-as-als-rgb",
+        prog="camtone",
         description=(
             "Use laptop webcam as an Ambient Light (ALS) + Color Temperature (RGB/CCT) sensor on GNOME Wayland. "
             "Without --once/--sweep/--restore-night-light, runs the resident service."

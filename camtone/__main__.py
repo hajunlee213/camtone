@@ -1,4 +1,4 @@
-"""``python3 -m webcam_als_rgb``: same as the ``webcam-als-rgb`` executable."""
+"""``python3 -m camtone``: same as the ``camtone`` executable."""
 
 from .cli import main
 

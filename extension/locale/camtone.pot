@@ -1,13 +1,13 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: webcam-als-rgb\n"
+"Project-Id-Version: camtone\n"
 "Language: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
 #: extension.js:282 extension.js:298
-msgid "Webcam ALS RGB"
+msgid "CamTone"
 msgstr ""
 
 #: extension.js:301

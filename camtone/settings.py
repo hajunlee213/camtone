@@ -2,7 +2,7 @@
 
 Config precedence (lowest first):
   1. DEFAULT_CONFIG (code defaults; ``sensor`` section is code-only)
-  2. GSettings ``org.gnome.shell.extensions.webcam-als-rgb`` if the schema is installed
+  2. GSettings ``org.gnome.shell.extensions.camtone`` if the schema is installed
   3. ``--config path.json`` (development override; applied last)
   4. CLI overrides (``--no-brightness``, ``--no-color``, ``--interval``)
 
@@ -22,7 +22,7 @@ from gi.repository import Gio
 if TYPE_CHECKING:  # pragma: no cover
     from .controller import AdaptiveController
 
-SCHEMA_ID = "org.gnome.shell.extensions.webcam-als-rgb"
+SCHEMA_ID = "org.gnome.shell.extensions.camtone"
 
 # GSettings keys whose change requires the measurement schedule to be recomputed.
 INTERVAL_KEYS = frozenset({"interval-ac-sec", "interval-battery-sec", "interval-max-sec"})

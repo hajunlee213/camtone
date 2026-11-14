@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<schemalist gettext-domain="webcam-als-rgb">
-  <schema id="org.gnome.shell.extensions.webcam-als-rgb" path="/org/gnome/shell/extensions/webcam-als-rgb/">
+<schemalist gettext-domain="camtone">
+  <schema id="org.gnome.shell.extensions.camtone" path="/org/gnome/shell/extensions/camtone/">
     <key name="enabled" type="b">
       <default>true</default>
-      <summary>Enable webcam ALS/RGB</summary>
+      <summary>Enable CamTone</summary>
       <description>Master switch. When false the extension stops the service.</description>
     </key>
     <key name="auto-brightness" type="b">
