@@ -304,6 +304,15 @@ export default class WebcamAlsRgbPreferences extends ExtensionPreferences {
             title: _('Temperature deadband (K)'), subtitle: _('Temperature is not changed unless it differs by at least this much'), step: 10, page: 50,
         }));
 
+        const nightGroup = addGroup(cctPage, _('Fixed night schedule'),
+            _('During the set hours the color temperature is fixed. Brightness is still adjusted automatically from the camera.'));
+        nightGroup.add(switchRow('night-schedule-enabled', _('Use night schedule')));
+        nightGroup.add(spinRow('night-schedule-temp', {title: _('Fixed temperature (K)'), step: 100, page: 500}));
+        nightGroup.add(spinRow('night-schedule-from-hour', {title: _('Start hour')}));
+        nightGroup.add(spinRow('night-schedule-from-minute', {title: _('Start minute'), step: 5, page: 15}));
+        nightGroup.add(spinRow('night-schedule-to-hour', {title: _('End hour')}));
+        nightGroup.add(spinRow('night-schedule-to-minute', {title: _('End minute'), step: 5, page: 15}));
+
         const psrGroup = addGroup(cctPage, _('Screen refresh'));
         psrGroup.add(switchRow('psr-refresh', _('PSR2 full refresh'),
             _('Forces a full redraw so temperature changes show on the whole screen at once on Intel PSR2 panels')));
@@ -328,15 +337,6 @@ export default class WebcamAlsRgbPreferences extends ExtensionPreferences {
         const powerGroup = addGroup(measurePage, _('Power'));
         powerGroup.add(switchRow('pause-on-battery', _('Pause measuring on battery'),
             _('When on, the camera is not used while running on battery')));
-
-        const nightGroup = addGroup(measurePage, _('Fixed night schedule'),
-            _('During the set hours the color temperature is fixed. Brightness is still adjusted automatically from the camera.'));
-        nightGroup.add(switchRow('night-schedule-enabled', _('Use night schedule')));
-        nightGroup.add(spinRow('night-schedule-temp', {title: _('Fixed temperature (K)'), step: 100, page: 500}));
-        nightGroup.add(spinRow('night-schedule-from-hour', {title: _('Start hour')}));
-        nightGroup.add(spinRow('night-schedule-from-minute', {title: _('Start minute'), step: 5, page: 15}));
-        nightGroup.add(spinRow('night-schedule-to-hour', {title: _('End hour')}));
-        nightGroup.add(spinRow('night-schedule-to-minute', {title: _('End minute'), step: 5, page: 15}));
 
         const smoothGroup = addGroup(measurePage, _('Measurement smoothing'));
         smoothGroup.add(spinRow('ema-alpha', {

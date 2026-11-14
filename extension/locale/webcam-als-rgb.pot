@@ -231,83 +231,83 @@ msgid "Temperature is not changed unless it differs by at least this much"
 msgstr ""
 
 #: prefs.js:307
-msgid "Screen refresh"
-msgstr ""
-
-#: prefs.js:308
-msgid "PSR2 full refresh"
-msgstr ""
-
-#: prefs.js:309
-msgid "Forces a full redraw so temperature changes show on the whole screen at once on Intel PSR2 panels"
-msgstr ""
-
-#: prefs.js:314
-msgid "Measuring & Power"
-msgstr ""
-
-#: prefs.js:316
-msgid "Measurement interval"
-msgstr ""
-
-#: prefs.js:317
-msgid "When nothing changes, the interval grows automatically up to the maximum."
-msgstr ""
-
-#: prefs.js:319
-msgid "Interval on AC power (s)"
-msgstr ""
-
-#: prefs.js:322
-msgid "Interval on battery (s)"
-msgstr ""
-
-#: prefs.js:325
-msgid "Maximum adaptive interval (s)"
-msgstr ""
-
-#: prefs.js:328
-msgid "Power"
-msgstr ""
-
-#: prefs.js:329
-msgid "Pause measuring on battery"
-msgstr ""
-
-#: prefs.js:330
-msgid "When on, the camera is not used while running on battery"
-msgstr ""
-
-#: prefs.js:332
 msgid "Fixed night schedule"
 msgstr ""
 
-#: prefs.js:333
+#: prefs.js:308
 msgid "During the set hours the color temperature is fixed. Brightness is still adjusted automatically from the camera."
 msgstr ""
 
-#: prefs.js:334
+#: prefs.js:309
 msgid "Use night schedule"
 msgstr ""
 
-#: prefs.js:335
+#: prefs.js:310
 msgid "Fixed temperature (K)"
 msgstr ""
 
-#: prefs.js:336
+#: prefs.js:311
 msgid "Start hour"
 msgstr ""
 
-#: prefs.js:337
+#: prefs.js:312
 msgid "Start minute"
 msgstr ""
 
-#: prefs.js:338
+#: prefs.js:313
 msgid "End hour"
 msgstr ""
 
-#: prefs.js:339
+#: prefs.js:314
 msgid "End minute"
+msgstr ""
+
+#: prefs.js:316
+msgid "Screen refresh"
+msgstr ""
+
+#: prefs.js:317
+msgid "PSR2 full refresh"
+msgstr ""
+
+#: prefs.js:318
+msgid "Forces a full redraw so temperature changes show on the whole screen at once on Intel PSR2 panels"
+msgstr ""
+
+#: prefs.js:323
+msgid "Measuring & Power"
+msgstr ""
+
+#: prefs.js:325
+msgid "Measurement interval"
+msgstr ""
+
+#: prefs.js:326
+msgid "When nothing changes, the interval grows automatically up to the maximum."
+msgstr ""
+
+#: prefs.js:328
+msgid "Interval on AC power (s)"
+msgstr ""
+
+#: prefs.js:331
+msgid "Interval on battery (s)"
+msgstr ""
+
+#: prefs.js:334
+msgid "Maximum adaptive interval (s)"
+msgstr ""
+
+#: prefs.js:337
+msgid "Power"
+msgstr ""
+
+#: prefs.js:338
+msgid "Pause measuring on battery"
+msgstr ""
+
+#: prefs.js:339
+msgid "When on, the camera is not used while running on battery"
 msgstr ""
 
 #: prefs.js:341

@@ -231,84 +231,84 @@ msgid "Temperature is not changed unless it differs by at least this much"
 msgstr "이만큼 변하지 않으면 색온도를 바꾸지 않음"
 
 #: prefs.js:307
-msgid "Screen refresh"
-msgstr "화면 갱신"
-
-#: prefs.js:308
-msgid "PSR2 full refresh"
-msgstr "PSR2 전체 갱신"
-
-#: prefs.js:309
-msgid "Forces a full redraw so temperature changes show on the whole screen at once on Intel PSR2 panels"
-msgstr "Intel PSR2 패널에서 색온도 변경이 화면 전체에 바로 반영되도록 강제로 다시 그립니다"
-
-#: prefs.js:314
-msgid "Measuring & Power"
-msgstr "측정·전원"
-
-#: prefs.js:316
-msgid "Measurement interval"
-msgstr "측정 간격"
-
-#: prefs.js:317
-msgid "When nothing changes, the interval grows automatically up to the maximum."
-msgstr "변화가 없으면 간격이 최대 간격까지 자동으로 늘어납니다."
-
-#: prefs.js:319
-msgid "Interval on AC power (s)"
-msgstr "AC 전원 간격 (초)"
-
-#: prefs.js:322
-msgid "Interval on battery (s)"
-msgstr "배터리 간격 (초)"
-
-#: prefs.js:325
-msgid "Maximum adaptive interval (s)"
-msgstr "최대 적응 간격 (초)"
-
-#: prefs.js:328
-msgid "Power"
-msgstr "전원"
-
-#: prefs.js:329
-msgid "Pause measuring on battery"
-msgstr "배터리에서 측정 일시정지"
-
-#: prefs.js:330
-msgid "When on, the camera is not used while running on battery"
-msgstr "켜면 배터리 사용 중에는 카메라를 켜지 않습니다"
-
-#: prefs.js:332
 msgid "Fixed night schedule"
 msgstr "야간 고정 스케줄"
 
-#: prefs.js:333
+#: prefs.js:308
 msgid "During the set hours the color temperature is fixed. Brightness is still adjusted automatically from the camera."
 msgstr "지정한 시간대에는 색온도를 고정합니다. 밝기는 계속 카메라로 자동 조절됩니다."
 
-#: prefs.js:334
+#: prefs.js:309
 msgid "Use night schedule"
 msgstr "야간 스케줄 사용"
 
-#: prefs.js:335
+#: prefs.js:310
 msgid "Fixed temperature (K)"
 msgstr "고정 색온도 (K)"
 
-#: prefs.js:336
+#: prefs.js:311
 msgid "Start hour"
 msgstr "시작 시"
 
-#: prefs.js:337
+#: prefs.js:312
 msgid "Start minute"
 msgstr "시작 분"
 
-#: prefs.js:338
+#: prefs.js:313
 msgid "End hour"
 msgstr "종료 시"
 
-#: prefs.js:339
+#: prefs.js:314
 msgid "End minute"
 msgstr "종료 분"
+
+#: prefs.js:316
+msgid "Screen refresh"
+msgstr "화면 갱신"
+
+#: prefs.js:317
+msgid "PSR2 full refresh"
+msgstr "PSR2 전체 갱신"
+
+#: prefs.js:318
+msgid "Forces a full redraw so temperature changes show on the whole screen at once on Intel PSR2 panels"
+msgstr "Intel PSR2 패널에서 색온도 변경이 화면 전체에 바로 반영되도록 강제로 다시 그립니다"
+
+#: prefs.js:323
+msgid "Measuring & Power"
+msgstr "측정·전원"
+
+#: prefs.js:325
+msgid "Measurement interval"
+msgstr "측정 간격"
+
+#: prefs.js:326
+msgid "When nothing changes, the interval grows automatically up to the maximum."
+msgstr "변화가 없으면 간격이 최대 간격까지 자동으로 늘어납니다."
+
+#: prefs.js:328
+msgid "Interval on AC power (s)"
+msgstr "AC 전원 간격 (초)"
+
+#: prefs.js:331
+msgid "Interval on battery (s)"
+msgstr "배터리 간격 (초)"
+
+#: prefs.js:334
+msgid "Maximum adaptive interval (s)"
+msgstr "최대 적응 간격 (초)"
+
+#: prefs.js:337
+msgid "Power"
+msgstr "전원"
+
+#: prefs.js:338
+msgid "Pause measuring on battery"
+msgstr "배터리에서 측정 일시정지"
+
+#: prefs.js:339
+msgid "When on, the camera is not used while running on battery"
+msgstr "켜면 배터리 사용 중에는 카메라를 켜지 않습니다"
 
 #: prefs.js:341
 msgid "Measurement smoothing"
