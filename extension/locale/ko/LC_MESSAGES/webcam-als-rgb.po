@@ -1,0 +1,567 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: webcam-als-rgb\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: extension.js:282 extension.js:298
+msgid "Webcam ALS RGB"
+msgstr "Webcam ALS RGB"
+
+#: extension.js:301
+msgid "Possible conflict"
+msgstr "충돌 가능"
+
+#: extension.js:306 prefs.js:243 prefs.js:244
+msgid "Auto brightness"
+msgstr "자동 밝기"
+
+#: extension.js:310 prefs.js:288 prefs.js:289
+msgid "Auto color temperature"
+msgstr "자동 색온도"
+
+#: extension.js:321
+msgid "Measure now"
+msgstr "지금 측정"
+
+#: extension.js:326
+msgid "Settings…"
+msgstr "설정…"
+
+#: extension.js:359
+msgid "A possibly conflicting extension is enabled"
+msgstr "충돌 가능한 확장이 켜져 있음"
+
+#: extension.js:413 prefs.js:237 prefs.js:546
+msgid "Brightness"
+msgstr "밝기"
+
+#: extension.js:416
+msgid "Measuring"
+msgstr "측정 중"
+
+#: extension.js:419 prefs.js:83
+msgid "Locked"
+msgstr "잠김"
+
+#: extension.js:421 prefs.js:85
+msgid "Suspended"
+msgstr "절전 중"
+
+#: extension.js:423 prefs.js:87
+msgid "Battery saving"
+msgstr "배터리 절약"
+
+#: extension.js:425 prefs.js:89
+msgid "Display off"
+msgstr "화면 꺼짐"
+
+#: extension.js:427 prefs.js:91
+msgid "Camera in use"
+msgstr "카메라 사용 중"
+
+#: extension.js:429 extension.js:461
+msgid "Idle"
+msgstr "대기 중"
+
+#: extension.js:438 extension.js:442
+msgid "Ambient"
+msgstr "주변"
+
+#: extension.js:438
+msgid "Not measured yet"
+msgstr "측정 전"
+
+#: extension.js:441 prefs.js:554
+msgid "%s s ago"
+msgstr "%s초 전"
+
+#: extension.js:441 prefs.js:554
+msgid "%s min ago"
+msgstr "%s분 전"
+
+#: extension.js:454
+msgid "Off"
+msgstr "꺼짐"
+
+#: extension.js:456
+msgid "Install error"
+msgstr "설치 오류"
+
+#: extension.js:459
+msgid "Error"
+msgstr "오류"
+
+#: extension.js:461 prefs.js:93
+msgid "Starting"
+msgstr "시작 중"
+
+#: prefs.js:66
+msgid "The daemon is not running. Turn it on in Quick Settings."
+msgstr "데몬이 실행 중이 아닙니다. 퀵 설정에서 켜 주세요."
+
+#: prefs.js:70
+msgid "The measurement was not updated. Check whether measuring is paused."
+msgstr "측정 결과가 갱신되지 않았습니다. 일시정지 상태인지 확인하세요."
+
+#: prefs.js:81
+msgid "Running"
+msgstr "실행 중"
+
+#: prefs.js:105
+msgid "Direct control (logind)"
+msgstr "직접 제어 (logind)"
+
+#: prefs.js:107
+msgid "None"
+msgstr "없음"
+
+#: prefs.js:150
+msgid "Undo"
+msgstr "되돌리기"
+
+#: prefs.js:176
+msgid "Reset to default"
+msgstr "기본값으로"
+
+#: prefs.js:239
+msgid "Service"
+msgstr "서비스"
+
+#: prefs.js:240
+msgid "Same setting as the Quick Settings toggle. Turning it off stops measuring and adjusting, and restores Night Light."
+msgstr "퀵 설정 토글과 같은 값입니다. 끄면 측정과 조정을 멈추고 야간 모드를 원래대로 되돌립니다."
+
+#: prefs.js:241
+msgid "Enable service"
+msgstr "서비스 사용"
+
+#: prefs.js:245
+msgid "Adjusts screen brightness to the ambient light"
+msgstr "주변 밝기에 맞춰 화면 밝기를 조정합니다"
+
+#: prefs.js:247
+msgid "Minimum brightness (%)"
+msgstr "최소 밝기 (%)"
+
+#: prefs.js:247
+msgid "Brightness used in dark surroundings"
+msgstr "어두운 곳에서 쓰는 밝기"
+
+#: prefs.js:250
+msgid "Maximum brightness (%)"
+msgstr "최대 밝기 (%)"
+
+#: prefs.js:250
+msgid "Brightness used in bright surroundings"
+msgstr "밝은 곳에서 쓰는 밝기"
+
+#: prefs.js:253
+msgid "Brightness deadband (%)"
+msgstr "밝기 데드밴드 (%)"
+
+#: prefs.js:253
+msgid "Brightness is not changed unless it differs by at least this much"
+msgstr "이만큼 변하지 않으면 밝기를 바꾸지 않음"
+
+#: prefs.js:257
+msgid "Learned brightness offset"
+msgstr "학습된 밝기 오프셋"
+
+#: prefs.js:258
+msgid "When you adjust brightness manually, the daemon learns the difference and adds it to this value."
+msgstr "수동으로 밝기를 조절하면 데몬이 그 차이를 학습해 이 값에 더합니다."
+
+#: prefs.js:259
+msgid "Learned offset"
+msgstr "학습된 오프셋"
+
+#: prefs.js:260
+msgid "Reset"
+msgstr "초기화"
+
+#: prefs.js:273
+msgid "Brightness fine-tuning"
+msgstr "밝기 미세 조정"
+
+#: prefs.js:274
+msgid "Fine-tune brightness with the GNOME brightness slider. The slider midpoint (50%) means no adjustment."
+msgstr "밝기 미세 조정은 GNOME 밝기 슬라이더로 합니다. 슬라이더 가운데(50%)가 보정 없음입니다."
+
+#: prefs.js:286
+msgid "Color temperature"
+msgstr "색온도"
+
+#: prefs.js:290
+msgid "Adjusts the Night Light temperature to the ambient color"
+msgstr "주변 색을 보고 야간 모드 색온도를 조정합니다"
+
+#: prefs.js:292
+msgid "Display temperature range"
+msgstr "화면 색온도 범위"
+
+#: prefs.js:293
+msgid "The ambient temperature range maps linearly onto the display range. Calibration is done on the Calibration page."
+msgstr "주변 색온도 범위가 화면 색온도 범위에 선형으로 대응합니다. 보정은 보정 쪽에서 합니다."
+
+#: prefs.js:295
+msgid "Minimum temperature (K, warmest)"
+msgstr "최소 색온도 (K, 가장 따뜻함)"
+
+#: prefs.js:298
+msgid "Maximum temperature (K, coolest)"
+msgstr "최대 색온도 (K, 가장 차가움)"
+
+#: prefs.js:301
+msgid "Temperature offset (K)"
+msgstr "색온도 오프셋 (K)"
+
+#: prefs.js:301
+msgid "+ cooler, - warmer"
+msgstr "+ 차갑게, - 따뜻하게"
+
+#: prefs.js:304
+msgid "Temperature deadband (K)"
+msgstr "색온도 데드밴드 (K)"
+
+#: prefs.js:304
+msgid "Temperature is not changed unless it differs by at least this much"
+msgstr "이만큼 변하지 않으면 색온도를 바꾸지 않음"
+
+#: prefs.js:307
+msgid "Screen refresh"
+msgstr "화면 갱신"
+
+#: prefs.js:308
+msgid "PSR2 full refresh"
+msgstr "PSR2 전체 갱신"
+
+#: prefs.js:309
+msgid "Forces a full redraw so temperature changes show on the whole screen at once on Intel PSR2 panels"
+msgstr "Intel PSR2 패널에서 색온도 변경이 화면 전체에 바로 반영되도록 강제로 다시 그립니다"
+
+#: prefs.js:314
+msgid "Measuring & Power"
+msgstr "측정·전원"
+
+#: prefs.js:316
+msgid "Measurement interval"
+msgstr "측정 간격"
+
+#: prefs.js:317
+msgid "When nothing changes, the interval grows automatically up to the maximum."
+msgstr "변화가 없으면 간격이 최대 간격까지 자동으로 늘어납니다."
+
+#: prefs.js:319
+msgid "Interval on AC power (s)"
+msgstr "AC 전원 간격 (초)"
+
+#: prefs.js:322
+msgid "Interval on battery (s)"
+msgstr "배터리 간격 (초)"
+
+#: prefs.js:325
+msgid "Maximum adaptive interval (s)"
+msgstr "최대 적응 간격 (초)"
+
+#: prefs.js:328
+msgid "Power"
+msgstr "전원"
+
+#: prefs.js:329
+msgid "Pause measuring on battery"
+msgstr "배터리에서 측정 일시정지"
+
+#: prefs.js:330
+msgid "When on, the camera is not used while running on battery"
+msgstr "켜면 배터리 사용 중에는 카메라를 켜지 않습니다"
+
+#: prefs.js:332
+msgid "Fixed night schedule"
+msgstr "야간 고정 스케줄"
+
+#: prefs.js:333
+msgid "During the set hours the color temperature is fixed. Brightness is still adjusted automatically from the camera."
+msgstr "지정한 시간대에는 색온도를 고정합니다. 밝기는 계속 카메라로 자동 조절됩니다."
+
+#: prefs.js:334
+msgid "Use night schedule"
+msgstr "야간 스케줄 사용"
+
+#: prefs.js:335
+msgid "Fixed temperature (K)"
+msgstr "고정 색온도 (K)"
+
+#: prefs.js:336
+msgid "Start hour"
+msgstr "시작 시"
+
+#: prefs.js:337
+msgid "Start minute"
+msgstr "시작 분"
+
+#: prefs.js:338
+msgid "End hour"
+msgstr "종료 시"
+
+#: prefs.js:339
+msgid "End minute"
+msgstr "종료 분"
+
+#: prefs.js:341
+msgid "Measurement smoothing"
+msgstr "측정 안정화"
+
+#: prefs.js:343
+msgid "Smoothing factor (EMA α)"
+msgstr "평활화 계수 (EMA α)"
+
+#: prefs.js:344
+msgid "Higher reacts faster, lower is smoother"
+msgstr "클수록 빠르게 반응하고, 작을수록 부드럽습니다"
+
+#: prefs.js:348
+msgid "Top bar"
+msgstr "상단바"
+
+#: prefs.js:349
+msgid "Show top bar icon"
+msgstr "상단바 아이콘 표시"
+
+#: prefs.js:350
+msgid "Shows an icon in the top bar while the service is on"
+msgstr "서비스가 켜져 있을 때 상단바에 아이콘을 표시합니다"
+
+#: prefs.js:355
+msgid "Calibration"
+msgstr "보정"
+
+#: prefs.js:357
+msgid "Brightness references (ev)"
+msgstr "밝기 기준 (ev)"
+
+#: prefs.js:358
+msgid "Two reference points that turn the ambient light reading into a brightness %. Press each button in dark and in bright surroundings to store the current reading."
+msgstr "주변 밝기 측정값을 밝기 %로 바꾸는 두 기준점입니다. 어두운 곳과 밝은 곳에서 각각 버튼을 누르면 지금 측정값이 들어갑니다."
+
+#: prefs.js:360 prefs.js:389
+msgid "Dark reference ev"
+msgstr "어두운 기준 ev"
+
+#: prefs.js:360
+msgid "At or below this value, minimum brightness is used"
+msgstr "이 값 이하는 최소 밝기"
+
+#: prefs.js:363 prefs.js:389
+msgid "Bright reference ev"
+msgstr "밝은 기준 ev"
+
+#: prefs.js:363
+msgid "At or above this value, maximum brightness is used"
+msgstr "이 값 이상은 최대 밝기"
+
+#: prefs.js:373
+msgid "Could not read the measurement."
+msgstr "측정값을 읽지 못했습니다."
+
+#: prefs.js:377
+msgid "The dark reference must be below the bright reference (%s). Current reading: %s"
+msgstr "어두운 기준은 밝은 기준(%s)보다 작아야 합니다. 현재 측정값: %s"
+
+#: prefs.js:379
+msgid "The bright reference must be above the dark reference (%s). Current reading: %s"
+msgstr "밝은 기준은 어두운 기준(%s)보다 커야 합니다. 현재 측정값: %s"
+
+#: prefs.js:392
+msgid "With this value, brightness here would be about %s"
+msgstr "이 값을 쓰면 지금 환경에서 밝기가 약 %s가 됩니다"
+
+#: prefs.js:393
+msgid "current setting: about %s"
+msgstr "현재 설정: 약 %s"
+
+#: prefs.js:394
+msgid "Estimate calculated without the calibration offset."
+msgstr "보정 오프셋은 빼고 계산한 추정치입니다."
+
+#: prefs.js:398
+msgid "Change the dark reference?"
+msgstr "어두운 기준을 바꿀까요?"
+
+#: prefs.js:398
+msgid "Change the bright reference?"
+msgstr "밝은 기준을 바꿀까요?"
+
+#: prefs.js:400
+msgid "Cancel"
+msgstr "취소"
+
+#: prefs.js:401
+msgid "Apply"
+msgstr "적용"
+
+#: prefs.js:411
+msgid "The value is out of the allowed range."
+msgstr "값이 허용 범위를 벗어났습니다."
+
+#: prefs.js:416
+msgid "Dark reference set to %s"
+msgstr "어두운 기준을 %s(으)로 설정했습니다"
+
+#: prefs.js:416
+msgid "Bright reference set to %s"
+msgstr "밝은 기준을 %s(으)로 설정했습니다"
+
+#: prefs.js:419
+msgid "Could not undo."
+msgstr "되돌리지 못했습니다."
+
+#: prefs.js:422
+msgid "Use current surroundings as dark reference"
+msgstr "현재 환경을 어두운 기준으로"
+
+#: prefs.js:423
+msgid "Measures now in dark surroundings and stores it as the dark reference ev"
+msgstr "지금 어두운 곳에서 측정해 어두운 기준 ev로 넣습니다"
+
+#: prefs.js:423 prefs.js:426
+msgid "Measure and set"
+msgstr "측정해서 설정"
+
+#: prefs.js:425
+msgid "Use current surroundings as bright reference"
+msgstr "현재 환경을 밝은 기준으로"
+
+#: prefs.js:426
+msgid "Measures now in bright surroundings and stores it as the bright reference ev"
+msgstr "지금 밝은 곳에서 측정해 밝은 기준 ev로 넣습니다"
+
+#: prefs.js:429
+msgid "Ambient temperature range"
+msgstr "주변 색온도 범위"
+
+#: prefs.js:430
+msgid "The measured ambient temperature is mapped linearly from this range to the display range."
+msgstr "측정한 주변 색온도를 이 범위에서 화면 색온도 범위로 선형 변환합니다."
+
+#: prefs.js:432
+msgid "Minimum ambient temperature (K)"
+msgstr "주변 최소 색온도 (K)"
+
+#: prefs.js:435
+msgid "Maximum ambient temperature (K)"
+msgstr "주변 최대 색온도 (K)"
+
+#: prefs.js:439
+msgid "Temperature calibration points"
+msgstr "색온도 보정 점"
+
+#: prefs.js:440
+msgid "Measured ambient temperature → actual light temperature. One point shifts everything by that amount; two or more are joined linearly. With none, no correction is applied."
+msgstr "측정 주변 색온도 → 실제 조명 색온도. 1개면 그만큼 평행 이동하고, 2개 이상이면 점 사이를 선형으로 잇습니다. 비우면 보정하지 않습니다."
+
+#: prefs.js:457
+msgid "No calibration points"
+msgstr "보정 점 없음"
+
+#: prefs.js:458
+msgid "The ambient temperature is used as measured"
+msgstr "주변 색온도를 그대로 사용합니다"
+
+#: prefs.js:468
+msgid "Measured ambient temperature → actual light temperature"
+msgstr "측정 주변 색온도 → 실제 조명 색온도"
+
+#: prefs.js:472
+msgid "Delete"
+msgstr "삭제"
+
+#: prefs.js:489
+msgid "Add point"
+msgstr "점 추가"
+
+#: prefs.js:490
+msgid "Enter the actual temperature of the current light and it is paired with the ambient temperature measured now. The daemon must be running."
+msgstr "지금 조명의 실제 색온도를 입력하면, 지금 측정한 주변 색온도와 짝지어 추가합니다. 데몬이 실행 중이어야 합니다."
+
+#: prefs.js:491
+msgid "Actual light temperature (K)"
+msgstr "실제 조명 색온도 (K)"
+
+#: prefs.js:492
+msgid "Add"
+msgstr "추가"
+
+#: prefs.js:499
+msgid "Enter a number between 1000 and 15000."
+msgstr "1000~15000 사이의 숫자를 입력하세요."
+
+#: prefs.js:509
+msgid "Point added"
+msgstr "점 추가됨"
+
+#: prefs.js:519
+msgid "About"
+msgstr "정보"
+
+#: prefs.js:521
+msgid "Version"
+msgstr "버전"
+
+#: prefs.js:524
+msgid "Extension version"
+msgstr "확장 버전"
+
+#: prefs.js:528
+msgid "Daemon"
+msgstr "데몬"
+
+#: prefs.js:529
+msgid "Refreshed every 5 seconds."
+msgstr "5초마다 갱신합니다."
+
+#: prefs.js:530
+msgid "Status"
+msgstr "상태"
+
+#: prefs.js:531
+msgid "Last measurement"
+msgstr "마지막 측정"
+
+#: prefs.js:539
+msgid "Not running"
+msgstr "실행 중이 아님"
+
+#: prefs.js:550
+msgid "None yet"
+msgstr "아직 없음"
+
+#: prefs.js:568
+msgid "Log"
+msgstr "로그"
+
+#: prefs.js:569
+msgid "Command to view the log"
+msgstr "로그 보기 명령"
+
+#: prefs.js:570
+msgid "Copy"
+msgstr "복사"
+
+#: prefs.js:576
+msgid "Command copied."
+msgstr "명령을 복사했습니다."
+
+#: prefs.js:581
+msgid "Project"
+msgstr "프로젝트"
+
+#: prefs.js:582
+msgid "Repository"
+msgstr "저장소"
+
+#: prefs.js:583
+msgid "Open"
+msgstr "열기"

@@ -1,6 +1,4 @@
 import argparse
-import json
-from pathlib import Path
 import signal
 import subprocess
 import time
@@ -9,110 +7,8 @@ from typing import Any
 from .controller import AdaptiveController
 from .output import GnomeWaylandOutput
 from .sensor import SensorReading, WebcamSensor, get_exposure_range
-
-DEFAULT_CONFIG: dict[str, Any] = {
-    "sensor": {
-        "device": "/dev/video0",
-        "width": 320,
-        "height": 240,
-        "wb_ref_temp": 4600,
-        "min_exposure": 50,
-        # 2026-11-13 재실측: 노출 10000까지 luma가 계속 증가하나 캡처 시간(LED 점등)과의 균형을 위해 8000으로 설정 (v0.1.3 계획서 2절)
-        "max_exposure": 8000,
-        "initial_exposure": 350,
-        "black_level": 16.0,
-        # 2026-11-13 실측: luma<=80에서 노출에 정비례, v0.1.2 계획서 2절
-        "gamma": 1.0,
-        "yuv_range": "limited",
-        "target_luma_min": 50.0,
-        "target_luma_max": 80.0,
-        "target_luma_setpoint": 65.0,
-        "roi_mode": "full",
-        "exposure_blacklist": [1250, 2500],
-    },
-    "controller": {
-        # TODO(calibration): estimated values for gamma=1.0; tune with --dry-run
-        "ev_log_min": -8.8,
-        "ev_log_max": -2.3,
-        "brightness_min_pct": 15,
-        "brightness_max_pct": 95,
-        "ambient_cct_min": 2800.0,
-        "ambient_cct_max": 6500.0,
-        "display_cct_min": 3400,
-        "display_cct_max": 6200,
-        "cct_offset": 0,
-        # TODO(calibration): populate [measured_cct, actual_cct] pairs from known light sources
-        "cct_calibration": [],
-        "ema_alpha": 0.35,
-        "brightness_deadband_pct": 2,
-        "cct_deadband_k": 80,
-        "brightness_offset_pct": 0,
-    },
-    "output": {
-        "backlight_name": "intel_backlight",
-        "enable_brightness": True,
-        "enable_color_temp": True,
-        "transition_steps": 4,
-        "transition_interval_sec": 0.3,
-    },
-    "interval_sec": 15.0,
-}
-
-
-def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
-    merged = dict(base)
-    for k, v in override.items():
-        if isinstance(v, dict) and isinstance(merged.get(k), dict):
-            merged[k] = _deep_merge(merged[k], v)
-        else:
-            merged[k] = v
-    return merged
-
-
-def load_config(path: str | None) -> dict[str, Any]:
-    if not path:
-        return DEFAULT_CONFIG
-    data = json.loads(Path(path).read_text(encoding="utf-8"))
-    return _deep_merge(DEFAULT_CONFIG, data)
-
-
-def run_cycle(
-    sensor: WebcamSensor,
-    controller: AdaptiveController,
-    output: GnomeWaylandOutput,
-    dry_run: bool,
-) -> None:
-    reading = sensor.sample()
-    ts = time.strftime("%H:%M:%S")
-    if reading is None:
-        print(f"[{ts}] SKIP: {sensor.device} is busy (used by another app)")
-        return
-
-    actual_brightness = (
-        output.get_brightness_pct()
-        if (not dry_run and output.enable_brightness)
-        else None
-    )
-    target = controller.update(reading, actual_brightness_pct=actual_brightness)
-    actions = []
-    b_target: int | None = None
-    c_target: int | None = None
-    if target.apply_brightness and output.enable_brightness:
-        b_target = target.brightness_pct
-        actions.append(f"brightness={target.brightness_pct}%")
-    if target.apply_cct and output.enable_color_temp:
-        c_target = target.cct
-        actions.append(f"cct={target.cct}K")
-    if b_target is not None or c_target is not None:
-        output.apply_transition(brightness_pct=b_target, cct=c_target)
-
-    mode_tag = "DRY-RUN" if dry_run else "APPLIED"
-    action_str = ", ".join(actions) if actions else "no-change (within deadband)"
-    print(
-        f"[{ts}] exp={reading.exposure:4d} luma={reading.luma:5.1f} "
-        f"ev_log={reading.ev_log:5.2f} amb_cct={reading.cct:5.0f}K "
-        f"| target=({target.brightness_pct}%, {target.cct}K) [{mode_tag}: {action_str}]"
-    )
+from .service import run as run_service, run_cycle
+from .settings import load_cfg, open_settings, persist_learned_offset
 
 
 def _summarize_sweep(rows: list[SensorReading]) -> None:
@@ -264,12 +160,15 @@ def run_sweep(sensor: WebcamSensor, exposures_str: str, order: str) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="webcam-as-als-rgb",
-        description="Use laptop webcam as an Ambient Light (ALS) + Color Temperature (RGB/CCT) sensor on GNOME Wayland.",
+        description=(
+            "Use laptop webcam as an Ambient Light (ALS) + Color Temperature (RGB/CCT) sensor on GNOME Wayland. "
+            "Without --once/--sweep/--restore-night-light, runs the resident service."
+        ),
     )
-    parser.add_argument("--config", help="Path to JSON config file")
+    parser.add_argument("--config", help="Path to JSON config file (development override on top of GSettings)")
     parser.add_argument("--once", action="store_true", help="Run a single measurement cycle and exit")
     parser.add_argument("--dry-run", action="store_true", help="Measure and print targets without changing display settings")
-    parser.add_argument("--interval", type=float, help="Polling interval in seconds (overrides config)")
+    parser.add_argument("--interval", type=float, help="Service: AC measurement interval in seconds (overrides GSettings)")
     parser.add_argument("--no-brightness", action="store_true", help="Disable backlight control")
     parser.add_argument("--no-color", action="store_true", help="Disable Night Light color temperature control")
     parser.add_argument("--sweep", action="store_true", help="Run fixed-exposure diagnostic sweep (never modifies display)")
@@ -291,20 +190,21 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    def _handle_sigterm(signum: int, frame: Any) -> None:
-        raise SystemExit(0)
-
-    signal.signal(signal.SIGTERM, _handle_sigterm)
-
-    cfg = load_config(args.config)
-    out_cfg = dict(cfg["output"])
+    overrides: dict[str, Any] = {}
+    out_over: dict[str, Any] = {}
     if args.no_brightness:
-        out_cfg["enable_brightness"] = False
+        out_over["enable_brightness"] = False
     if args.no_color:
-        out_cfg["enable_color_temp"] = False
+        out_over["enable_color_temp"] = False
+    if out_over:
+        overrides["output"] = out_over
+    if args.interval is not None:
+        overrides["service"] = {"interval_ac_sec": float(args.interval)}
+
+    cfg = load_cfg(open_settings(), args.config, overrides)
 
     if args.restore_night_light:
-        output = GnomeWaylandOutput(**out_cfg, dry_run=args.dry_run)
+        output = GnomeWaylandOutput(**cfg["output"], dry_run=args.dry_run)
         if not output.state_file.exists():
             print(f"No Night Light state file found at {output.state_file}; nothing to restore.")
             return 0
@@ -316,7 +216,8 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         return 1
 
-    interval = args.interval if args.interval is not None else float(cfg["interval_sec"])
+    if not (args.once or args.sweep):
+        return run_service(args.config, overrides, args.dry_run)
 
     sensor = WebcamSensor(**cfg["sensor"])
     if args.sweep:
@@ -326,34 +227,31 @@ def main(argv: list[str] | None = None) -> int:
             print("\nStopped.")
             return 0
 
+    # --once: one measurement in the foreground, no GLib main loop.
+    def _handle_sigterm(signum: int, frame: Any) -> None:
+        raise SystemExit(0)
+
+    signal.signal(signal.SIGTERM, _handle_sigterm)
+
     controller = AdaptiveController(**cfg["controller"])
-    output = GnomeWaylandOutput(**out_cfg, dry_run=args.dry_run)
+    output = GnomeWaylandOutput(**cfg["output"], dry_run=args.dry_run)
+    settings = open_settings()
 
     if not args.dry_run:
         output.ensure_night_light_active()
-
     try:
-        if args.once:
-            try:
-                run_cycle(sensor, controller, output, args.dry_run)
-            except (subprocess.CalledProcessError, RuntimeError, OSError, ValueError) as exc:
-                ts = time.strftime("%H:%M:%S")
-                print(f"[{ts}] ERROR: cycle failed ({type(exc).__name__}: {exc})")
-                return 1
-            return 0
-
-        print(f"Starting webcam-as-als-rgb (interval={interval}s, dry_run={args.dry_run}). Press Ctrl+C to stop.")
         try:
-            while True:
-                try:
-                    run_cycle(sensor, controller, output, args.dry_run)
-                except (subprocess.CalledProcessError, RuntimeError, OSError, ValueError) as exc:
-                    ts = time.strftime("%H:%M:%S")
-                    print(f"[{ts}] WARN: cycle failed ({type(exc).__name__}: {exc})")
-                time.sleep(interval)
-        except (KeyboardInterrupt, SystemExit):
-            print("\nStopped.")
-            return 0
+            run_cycle(sensor, controller, output, args.dry_run)
+            output.wait_transition()  # no main loop here: finish the fade synchronously
+            persist_learned_offset(controller, settings, args.dry_run)
+        except (subprocess.CalledProcessError, RuntimeError, OSError, ValueError) as exc:
+            ts = time.strftime("%H:%M:%S")
+            print(f"[{ts}] ERROR: cycle failed ({type(exc).__name__}: {exc})")
+            return 1
+        return 0
+    except (KeyboardInterrupt, SystemExit):
+        print("\nStopped.")
+        return 0
     finally:
         if not args.dry_run:
             output.restore_night_light()

@@ -1,0 +1,13 @@
+[Unit]
+Description=Webcam ALS/RGB adaptive brightness and color temperature
+After=graphical-session.target
+PartOf=graphical-session.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=dbus
+BusName=io.github.hajunlee213.WebcamAlsRgb
+ExecStart=%h/.local/bin/webcam-als-rgb
+Restart=on-failure
+RestartSec=5s

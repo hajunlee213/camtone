@@ -1,0 +1,567 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: webcam-als-rgb\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: extension.js:282 extension.js:298
+msgid "Webcam ALS RGB"
+msgstr ""
+
+#: extension.js:301
+msgid "Possible conflict"
+msgstr ""
+
+#: extension.js:306 prefs.js:243 prefs.js:244
+msgid "Auto brightness"
+msgstr ""
+
+#: extension.js:310 prefs.js:288 prefs.js:289
+msgid "Auto color temperature"
+msgstr ""
+
+#: extension.js:321
+msgid "Measure now"
+msgstr ""
+
+#: extension.js:326
+msgid "Settings…"
+msgstr ""
+
+#: extension.js:359
+msgid "A possibly conflicting extension is enabled"
+msgstr ""
+
+#: extension.js:413 prefs.js:237 prefs.js:546
+msgid "Brightness"
+msgstr ""
+
+#: extension.js:416
+msgid "Measuring"
+msgstr ""
+
+#: extension.js:419 prefs.js:83
+msgid "Locked"
+msgstr ""
+
+#: extension.js:421 prefs.js:85
+msgid "Suspended"
+msgstr ""
+
+#: extension.js:423 prefs.js:87
+msgid "Battery saving"
+msgstr ""
+
+#: extension.js:425 prefs.js:89
+msgid "Display off"
+msgstr ""
+
+#: extension.js:427 prefs.js:91
+msgid "Camera in use"
+msgstr ""
+
+#: extension.js:429 extension.js:461
+msgid "Idle"
+msgstr ""
+
+#: extension.js:438 extension.js:442
+msgid "Ambient"
+msgstr ""
+
+#: extension.js:438
+msgid "Not measured yet"
+msgstr ""
+
+#: extension.js:441 prefs.js:554
+msgid "%s s ago"
+msgstr ""
+
+#: extension.js:441 prefs.js:554
+msgid "%s min ago"
+msgstr ""
+
+#: extension.js:454
+msgid "Off"
+msgstr ""
+
+#: extension.js:456
+msgid "Install error"
+msgstr ""
+
+#: extension.js:459
+msgid "Error"
+msgstr ""
+
+#: extension.js:461 prefs.js:93
+msgid "Starting"
+msgstr ""
+
+#: prefs.js:66
+msgid "The daemon is not running. Turn it on in Quick Settings."
+msgstr ""
+
+#: prefs.js:70
+msgid "The measurement was not updated. Check whether measuring is paused."
+msgstr ""
+
+#: prefs.js:81
+msgid "Running"
+msgstr ""
+
+#: prefs.js:105
+msgid "Direct control (logind)"
+msgstr ""
+
+#: prefs.js:107
+msgid "None"
+msgstr ""
+
+#: prefs.js:150
+msgid "Undo"
+msgstr ""
+
+#: prefs.js:176
+msgid "Reset to default"
+msgstr ""
+
+#: prefs.js:239
+msgid "Service"
+msgstr ""
+
+#: prefs.js:240
+msgid "Same setting as the Quick Settings toggle. Turning it off stops measuring and adjusting, and restores Night Light."
+msgstr ""
+
+#: prefs.js:241
+msgid "Enable service"
+msgstr ""
+
+#: prefs.js:245
+msgid "Adjusts screen brightness to the ambient light"
+msgstr ""
+
+#: prefs.js:247
+msgid "Minimum brightness (%)"
+msgstr ""
+
+#: prefs.js:247
+msgid "Brightness used in dark surroundings"
+msgstr ""
+
+#: prefs.js:250
+msgid "Maximum brightness (%)"
+msgstr ""
+
+#: prefs.js:250
+msgid "Brightness used in bright surroundings"
+msgstr ""
+
+#: prefs.js:253
+msgid "Brightness deadband (%)"
+msgstr ""
+
+#: prefs.js:253
+msgid "Brightness is not changed unless it differs by at least this much"
+msgstr ""
+
+#: prefs.js:257
+msgid "Learned brightness offset"
+msgstr ""
+
+#: prefs.js:258
+msgid "When you adjust brightness manually, the daemon learns the difference and adds it to this value."
+msgstr ""
+
+#: prefs.js:259
+msgid "Learned offset"
+msgstr ""
+
+#: prefs.js:260
+msgid "Reset"
+msgstr ""
+
+#: prefs.js:273
+msgid "Brightness fine-tuning"
+msgstr ""
+
+#: prefs.js:274
+msgid "Fine-tune brightness with the GNOME brightness slider. The slider midpoint (50%) means no adjustment."
+msgstr ""
+
+#: prefs.js:286
+msgid "Color temperature"
+msgstr ""
+
+#: prefs.js:290
+msgid "Adjusts the Night Light temperature to the ambient color"
+msgstr ""
+
+#: prefs.js:292
+msgid "Display temperature range"
+msgstr ""
+
+#: prefs.js:293
+msgid "The ambient temperature range maps linearly onto the display range. Calibration is done on the Calibration page."
+msgstr ""
+
+#: prefs.js:295
+msgid "Minimum temperature (K, warmest)"
+msgstr ""
+
+#: prefs.js:298
+msgid "Maximum temperature (K, coolest)"
+msgstr ""
+
+#: prefs.js:301
+msgid "Temperature offset (K)"
+msgstr ""
+
+#: prefs.js:301
+msgid "+ cooler, - warmer"
+msgstr ""
+
+#: prefs.js:304
+msgid "Temperature deadband (K)"
+msgstr ""
+
+#: prefs.js:304
+msgid "Temperature is not changed unless it differs by at least this much"
+msgstr ""
+
+#: prefs.js:307
+msgid "Screen refresh"
+msgstr ""
+
+#: prefs.js:308
+msgid "PSR2 full refresh"
+msgstr ""
+
+#: prefs.js:309
+msgid "Forces a full redraw so temperature changes show on the whole screen at once on Intel PSR2 panels"
+msgstr ""
+
+#: prefs.js:314
+msgid "Measuring & Power"
+msgstr ""
+
+#: prefs.js:316
+msgid "Measurement interval"
+msgstr ""
+
+#: prefs.js:317
+msgid "When nothing changes, the interval grows automatically up to the maximum."
+msgstr ""
+
+#: prefs.js:319
+msgid "Interval on AC power (s)"
+msgstr ""
+
+#: prefs.js:322
+msgid "Interval on battery (s)"
+msgstr ""
+
+#: prefs.js:325
+msgid "Maximum adaptive interval (s)"
+msgstr ""
+
+#: prefs.js:328
+msgid "Power"
+msgstr ""
+
+#: prefs.js:329
+msgid "Pause measuring on battery"
+msgstr ""
+
+#: prefs.js:330
+msgid "When on, the camera is not used while running on battery"
+msgstr ""
+
+#: prefs.js:332
+msgid "Fixed night schedule"
+msgstr ""
+
+#: prefs.js:333
+msgid "During the set hours the color temperature is fixed. Brightness is still adjusted automatically from the camera."
+msgstr ""
+
+#: prefs.js:334
+msgid "Use night schedule"
+msgstr ""
+
+#: prefs.js:335
+msgid "Fixed temperature (K)"
+msgstr ""
+
+#: prefs.js:336
+msgid "Start hour"
+msgstr ""
+
+#: prefs.js:337
+msgid "Start minute"
+msgstr ""
+
+#: prefs.js:338
+msgid "End hour"
+msgstr ""
+
+#: prefs.js:339
+msgid "End minute"
+msgstr ""
+
+#: prefs.js:341
+msgid "Measurement smoothing"
+msgstr ""
+
+#: prefs.js:343
+msgid "Smoothing factor (EMA α)"
+msgstr ""
+
+#: prefs.js:344
+msgid "Higher reacts faster, lower is smoother"
+msgstr ""
+
+#: prefs.js:348
+msgid "Top bar"
+msgstr ""
+
+#: prefs.js:349
+msgid "Show top bar icon"
+msgstr ""
+
+#: prefs.js:350
+msgid "Shows an icon in the top bar while the service is on"
+msgstr ""
+
+#: prefs.js:355
+msgid "Calibration"
+msgstr ""
+
+#: prefs.js:357
+msgid "Brightness references (ev)"
+msgstr ""
+
+#: prefs.js:358
+msgid "Two reference points that turn the ambient light reading into a brightness %. Press each button in dark and in bright surroundings to store the current reading."
+msgstr ""
+
+#: prefs.js:360 prefs.js:389
+msgid "Dark reference ev"
+msgstr ""
+
+#: prefs.js:360
+msgid "At or below this value, minimum brightness is used"
+msgstr ""
+
+#: prefs.js:363 prefs.js:389
+msgid "Bright reference ev"
+msgstr ""
+
+#: prefs.js:363
+msgid "At or above this value, maximum brightness is used"
+msgstr ""
+
+#: prefs.js:373
+msgid "Could not read the measurement."
+msgstr ""
+
+#: prefs.js:377
+msgid "The dark reference must be below the bright reference (%s). Current reading: %s"
+msgstr ""
+
+#: prefs.js:379
+msgid "The bright reference must be above the dark reference (%s). Current reading: %s"
+msgstr ""
+
+#: prefs.js:392
+msgid "With this value, brightness here would be about %s"
+msgstr ""
+
+#: prefs.js:393
+msgid "current setting: about %s"
+msgstr ""
+
+#: prefs.js:394
+msgid "Estimate calculated without the calibration offset."
+msgstr ""
+
+#: prefs.js:398
+msgid "Change the dark reference?"
+msgstr ""
+
+#: prefs.js:398
+msgid "Change the bright reference?"
+msgstr ""
+
+#: prefs.js:400
+msgid "Cancel"
+msgstr ""
+
+#: prefs.js:401
+msgid "Apply"
+msgstr ""
+
+#: prefs.js:411
+msgid "The value is out of the allowed range."
+msgstr ""
+
+#: prefs.js:416
+msgid "Dark reference set to %s"
+msgstr ""
+
+#: prefs.js:416
+msgid "Bright reference set to %s"
+msgstr ""
+
+#: prefs.js:419
+msgid "Could not undo."
+msgstr ""
+
+#: prefs.js:422
+msgid "Use current surroundings as dark reference"
+msgstr ""
+
+#: prefs.js:423
+msgid "Measures now in dark surroundings and stores it as the dark reference ev"
+msgstr ""
+
+#: prefs.js:423 prefs.js:426
+msgid "Measure and set"
+msgstr ""
+
+#: prefs.js:425
+msgid "Use current surroundings as bright reference"
+msgstr ""
+
+#: prefs.js:426
+msgid "Measures now in bright surroundings and stores it as the bright reference ev"
+msgstr ""
+
+#: prefs.js:429
+msgid "Ambient temperature range"
+msgstr ""
+
+#: prefs.js:430
+msgid "The measured ambient temperature is mapped linearly from this range to the display range."
+msgstr ""
+
+#: prefs.js:432
+msgid "Minimum ambient temperature (K)"
+msgstr ""
+
+#: prefs.js:435
+msgid "Maximum ambient temperature (K)"
+msgstr ""
+
+#: prefs.js:439
+msgid "Temperature calibration points"
+msgstr ""
+
+#: prefs.js:440
+msgid "Measured ambient temperature → actual light temperature. One point shifts everything by that amount; two or more are joined linearly. With none, no correction is applied."
+msgstr ""
+
+#: prefs.js:457
+msgid "No calibration points"
+msgstr ""
+
+#: prefs.js:458
+msgid "The ambient temperature is used as measured"
+msgstr ""
+
+#: prefs.js:468
+msgid "Measured ambient temperature → actual light temperature"
+msgstr ""
+
+#: prefs.js:472
+msgid "Delete"
+msgstr ""
+
+#: prefs.js:489
+msgid "Add point"
+msgstr ""
+
+#: prefs.js:490
+msgid "Enter the actual temperature of the current light and it is paired with the ambient temperature measured now. The daemon must be running."
+msgstr ""
+
+#: prefs.js:491
+msgid "Actual light temperature (K)"
+msgstr ""
+
+#: prefs.js:492
+msgid "Add"
+msgstr ""
+
+#: prefs.js:499
+msgid "Enter a number between 1000 and 15000."
+msgstr ""
+
+#: prefs.js:509
+msgid "Point added"
+msgstr ""
+
+#: prefs.js:519
+msgid "About"
+msgstr ""
+
+#: prefs.js:521
+msgid "Version"
+msgstr ""
+
+#: prefs.js:524
+msgid "Extension version"
+msgstr ""
+
+#: prefs.js:528
+msgid "Daemon"
+msgstr ""
+
+#: prefs.js:529
+msgid "Refreshed every 5 seconds."
+msgstr ""
+
+#: prefs.js:530
+msgid "Status"
+msgstr ""
+
+#: prefs.js:531
+msgid "Last measurement"
+msgstr ""
+
+#: prefs.js:539
+msgid "Not running"
+msgstr ""
+
+#: prefs.js:550
+msgid "None yet"
+msgstr ""
+
+#: prefs.js:568
+msgid "Log"
+msgstr ""
+
+#: prefs.js:569
+msgid "Command to view the log"
+msgstr ""
+
+#: prefs.js:570
+msgid "Copy"
+msgstr ""
+
+#: prefs.js:576
+msgid "Command copied."
+msgstr ""
+
+#: prefs.js:581
+msgid "Project"
+msgstr ""
+
+#: prefs.js:582
+msgid "Repository"
+msgstr ""
+
+#: prefs.js:583
+msgid "Open"
+msgstr ""

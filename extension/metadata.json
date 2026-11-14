@@ -1,7 +1,18 @@
 {
-  "name": "Webcam ALS RGB PSR Refresher",
-  "description": "Forces full-frame compositor damage on Intel PSR2 panels during Night Light transitions and hides the actor immediately afterward.",
-  "uuid": "webcam-als-rgb-psr@hajun.github.io",
-  "shell-version": ["45", "46", "47", "48", "49", "50"],
-  "version": 1
+  "name": "Webcam ALS RGB",
+  "description": "Adaptive screen brightness and color temperature from a laptop webcam. Quick Settings toggle controls the webcam-als-rgb daemon.",
+  "uuid": "webcam-als-rgb@hajun.github.io",
+  "url": "https://github.com/hajunlee213/webcam-as-als-rgb",
+  "shell-version": [
+    "45",
+    "46",
+    "47",
+    "48",
+    "49",
+    "50"
+  ],
+  "settings-schema": "org.gnome.shell.extensions.webcam-als-rgb",
+  "gettext-domain": "webcam-als-rgb",
+  "version": 3,
+  "version-name": "0.1.7"
 }
