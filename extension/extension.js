@@ -485,9 +485,10 @@ class WebcamAlsRgbToggle extends QuickMenuToggle {
             this._settings.disconnect(this._settingsChangedId);
             this._settingsChangedId = 0;
         }
-        this._settings.unbind(this, 'checked');
-        this._settings.unbind(this._autoBrightnessItem, 'state');
-        this._settings.unbind(this._autoCctItem, 'state');
+        // unbind() is a static function on Gio.Settings, not an instance method.
+        Gio.Settings.unbind(this, 'checked');
+        Gio.Settings.unbind(this._autoBrightnessItem, 'state');
+        Gio.Settings.unbind(this._autoCctItem, 'state');
 
         if (this._proxy) {
             if (this._proxyPropsId)
